@@ -1,0 +1,354 @@
+.landing-page {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #0b1120;
+  color: #e2e8f0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Navbar */
+.lp-navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 4rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.lp-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: white;
+}
+
+.lp-nav-links {
+  display: flex;
+  gap: 2rem;
+}
+
+.lp-nav-links a {
+  color: #94a3b8;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: color 0.2s;
+}
+
+.lp-nav-links a:hover {
+  color: white;
+}
+
+.lp-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.lp-btn-ghost {
+  background: transparent;
+  border: none;
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.lp-btn-ghost:hover {
+  color: #38bdf8;
+}
+
+.lp-btn-primary {
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  padding: 0.5rem 1.25rem;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.lp-btn-primary:hover {
+  background-color: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+/* Hero Section */
+.lp-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6rem 4rem;
+  gap: 4rem;
+}
+
+.lp-hero-content {
+  flex: 1;
+  max-width: 600px;
+}
+
+.lp-badge {
+  display: inline-flex;
+  align-items: center;
+  background-color: rgba(56, 189, 248, 0.1);
+  color: #38bdf8;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  margin-bottom: 2rem;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.lp-title {
+  font-size: 4rem;
+  line-height: 1.1;
+  font-weight: 800;
+  color: white;
+  margin-bottom: 1.5rem;
+}
+
+.lp-title-highlight {
+  color: #38bdf8;
+  display: block;
+}
+
+.lp-subtitle {
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: #94a3b8;
+  margin-bottom: 2.5rem;
+}
+
+.lp-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 4rem;
+}
+
+.lp-btn-large {
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+}
+
+.lp-btn-secondary {
+  background: transparent;
+  color: white;
+  border: none;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.lp-btn-secondary:hover {
+  color: #38bdf8;
+}
+
+.lp-stats {
+  display: flex;
+  gap: 3rem;
+}
+
+.lp-stat-item h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 0.25rem 0;
+}
+
+.lp-stat-item p {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.lp-hero-visual {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+
+.lp-hero-image {
+  width: 100%;
+  max-width: 600px;
+  border-radius: 12px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Trusted By */
+.lp-trusted {
+  text-align: center;
+  padding: 4rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.lp-trusted p {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 2rem;
+}
+
+.lp-logos {
+  display: flex;
+  justify-content: center;
+  gap: 4rem;
+  flex-wrap: wrap;
+}
+
+.lp-logo-item {
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* CTA Section */
+.lp-cta-wrapper {
+  padding: 6rem 4rem;
+  display: flex;
+  justify-content: center;
+}
+
+.lp-cta-card {
+  background: linear-gradient(to bottom right, #1e293b, #0f172a);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  padding: 4rem;
+  text-align: center;
+  max-width: 800px;
+  width: 100%;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+}
+
+.lp-cta-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 1rem;
+}
+
+.lp-cta-subtitle {
+  color: #94a3b8;
+  margin-bottom: 2.5rem;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.6;
+}
+
+.lp-cta-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.lp-btn-outline {
+  background: transparent;
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 0.75rem 2rem;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.lp-btn-outline:hover {
+  border-color: white;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.lp-btn-white {
+  background-color: white;
+  color: #0f172a;
+  border: none;
+  padding: 0.75rem 2rem;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.lp-btn-white:hover {
+  background-color: #f1f5f9;
+}
+
+/* Footer */
+.lp-footer {
+  background-color: #0b1120;
+  padding: 4rem 4rem 2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.lp-footer-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 4rem;
+  margin-bottom: 4rem;
+}
+
+.lp-footer-brand p {
+  color: #94a3b8;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  max-width: 300px;
+  margin-top: 1rem;
+}
+
+.lp-footer-col h4 {
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+}
+
+.lp-footer-col ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.lp-footer-col li {
+  margin-bottom: 0.75rem;
+}
+
+.lp-footer-col a {
+  color: #94a3b8;
+  text-decoration: none;
+  font-size: 0.875rem;
+  transition: color 0.2s;
+}
+
+.lp-footer-col a:hover {
+  color: white;
+}
+
+.lp-footer-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.75rem;
+  color: #64748b;
+}

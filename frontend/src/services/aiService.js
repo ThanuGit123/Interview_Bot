@@ -1,87 +1,76 @@
 const API_URL = 'http://localhost:5000/api';
 
+const getHeaders = () => {
+  const token = localStorage.getItem('careerForgeToken');
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+  };
+};
+
+export const uploadResume = async (resumeText) => {
+  const response = await fetch(`${API_URL}/resumes/`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ extracted_text: resumeText })
+  });
+  if (!response.ok) throw new Error("Failed to upload resume");
+  return await response.json();
+};
+
 export const extractSkills = async (resumeText) => {
   try {
-    const response = await fetch(`${API_URL}/extract-skills`, {
+    const response = await fetch(`${API_URL}/resumes/extract-skills`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: getHeaders(),
       body: JSON.stringify({ resumeText })
     });
-    
     if (!response.ok) throw new Error("Failed to extract skills");
-    
     const data = await response.json();
     return data.skills || [];
   } catch (error) {
     console.error("Error extracting skills:", error);
-    return ["React", "JavaScript", "Python"]; // Fallback
+    return [{"skill": "React", "confidence": 0.9}, {"skill": "JavaScript", "confidence": 0.85}, {"skill": "Python", "confidence": 0.8}];
   }
 };
 
-export const generateInterviewQuestions = async (resumeText, difficulty, maxQuestions, selectedSkills) => {
-  try {
-    const response = await fetch(`${API_URL}/generate-questions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ resumeText, difficulty, maxQuestions, selectedSkills })
-    });
-    
-    if (!response.ok) {
-      throw new Error("Failed to fetch from backend");
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error generating question:", error);
-    return { message: "Error connecting to backend server. Is it running?", context: "" };
-  }
+export const createThread = async (resumeId, difficulty, maxQuestions, selectedSkills) => {
+  const response = await fetch(`${API_URL}/threads/`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ 
+      resume_id: resumeId, 
+      difficulty, 
+      max_questions: maxQuestions, 
+      skills: selectedSkills 
+    })
+  });
+  if (!response.ok) throw new Error("Failed to create thread");
+  return await response.json();
 };
 
-export const evaluateAnswer = async (resumeText, difficulty, chatHistory, latestAnswer, isFinalQuestion, tabSwitches, currentRound, hintCount, maxQuestions, selectedSkills) => {
-  try {
-    const response = await fetch(`${API_URL}/evaluate-answer`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ resumeText, difficulty, chatHistory, latestAnswer, isFinalQuestion, tabSwitches, currentRound, hintCount, maxQuestions, selectedSkills })
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch from backend");
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error evaluating answer:", error);
-    return { message: "Error connecting to backend server to evaluate your answer.", isReport: false };
-  }
+export const createCoachThread = async (resumeId) => {
+  const response = await fetch(`${API_URL}/threads/`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ 
+      resume_id: resumeId, 
+      type: 'coaching'
+    })
+  });
+  if (!response.ok) throw new Error("Failed to create coach thread");
+  return await response.json();
 };
 
-export const getHint = async (chatHistory) => {
+export const fetchHistory = async () => {
   try {
-    const response = await fetch(`${API_URL}/get-hint`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ chatHistory })
+    const response = await fetch(`${API_URL}/threads/`, {
+      headers: getHeaders()
     });
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch from backend");
-    }
-
-    const data = await response.json();
-    return data.hint;
+    if (!response.ok) throw new Error("Failed to fetch history");
+    return await response.json();
   } catch (error) {
-    console.error("Error getting hint:", error);
-    return "Try re-reading the problem statement carefully.";
+    console.error("Error fetching history:", error);
+    return [];
   }
 };

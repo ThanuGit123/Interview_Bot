@@ -2,17 +2,29 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, User, Bot, Mic, MicOff, Lightbulb, Clock, Code2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getHint } from '../services/aiService';
 import Editor from '@monaco-editor/react';
 
-const ChatWindow = ({ messages, onSendMessage, isLoading, timeLimitMinutes, questionCount, onHintRequested, isCodingRound }) => {
+const sanitizeContent = (text) => {
+  if (!text) return text;
+  // Strip out any tool call syntax that the LLM might hallucinate, with or without parentheses
+  let cleanText = text.replace(/[<(]?function=[\s\S]*?(?:<\/function>|$|\))/gi, '');
+  cleanText = cleanText.replace(/[<(]?(?:record_round_grade|record_hint_given)[=>]?\s*\{[\s\S]*?(?:\}|\)<\/function>|\)|$)/gi, '');
+  cleanText = cleanText.replace(/<\/function>/gi, '');
+  return cleanText.trim();
+};
+const ChatWindow = ({ threadId, token, timeLimit, questionCount: initialQuestionCount, maxQuestions, onComplete }) => {
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [codeValue, setCodeValue] = useState('// Write your code here...\n');
   const [language, setLanguage] = useState('javascript');
   const [isRecording, setIsRecording] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(timeLimitMinutes * 60);
-  const [hintLoading, setHintLoading] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(timeLimit * 60);
+  const [isLoading, setIsLoading] = useState(true);
+  const [statusText, setStatusText] = useState('Initializing interview session...');
+  const [questionCount, setQuestionCount] = useState(initialQuestionCount || 1);
+  const [isCodingRound, setIsCodingRound] = useState(false);
   const messagesEndRef = useRef(null);
+  const ws = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -20,27 +32,118 @@ const ChatWindow = ({ messages, onSendMessage, isLoading, timeLimitMinutes, ques
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isLoading]);
+  }, [messages, isLoading, statusText]);
+
+  // Connect to WebSocket
+  useEffect(() => {
+    const wsUrl = `ws://localhost:5000/api/ws/threads/${threadId}?token=${token}`;
+    ws.current = new WebSocket(wsUrl);
+
+    ws.current.onopen = () => {
+      setIsLoading(true);
+      setStatusText('Connection established. Waking up Lumina...');
+      // Start the interview with the first prompt
+      ws.current.send(JSON.stringify({ action: "answer", text: "Start interview" }));
+    };
+
+    ws.current.onmessage = (event) => {
+      const payload = JSON.parse(event.data);
+      const eventType = payload.event_type;
+      const data = payload.data || {};
+      
+      if (eventType === 'token') {
+        setMessages(prev => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === 'bot' && last.isStreaming) {
+            let newContent = last.content + data.delta;
+            // Hide Groq function leakage dynamically
+            newContent = newContent.replace(/[<(]?function=[\s\S]*?(?:<\/function>|$|\))/gi, '');
+            newContent = newContent.replace(/[<(]?(?:record_round_grade|record_hint_given)[=>]?\s*\{[\s\S]*?(?:\}|\)<\/function>|\)|$)/gi, '');
+            newContent = newContent.replace(/<\/function>/gi, '');
+            return [...prev.slice(0, -1), { role: 'bot', content: newContent, isStreaming: true }];
+          } else {
+            let newContent = data.delta;
+            newContent = newContent.replace(/[<(]?function=[\s\S]*?(?:<\/function>|$|\))/gi, '');
+            newContent = newContent.replace(/[<(]?(?:record_round_grade|record_hint_given)[=>]?\s*\{[\s\S]*?(?:\}|\)<\/function>|\)|$)/gi, '');
+            newContent = newContent.replace(/<\/function>/gi, '');
+            return [...prev, { role: 'bot', content: newContent, isStreaming: true }];
+          }
+        });
+      } 
+      else if (eventType === 'message_complete') {
+        setMessages(prev => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === 'bot') {
+            return [...prev.slice(0, -1), { role: 'bot', content: data.content }]; // remove isStreaming flag
+          } else {
+            return [...prev, { role: 'bot', content: data.content }];
+          }
+        });
+        setIsLoading(false);
+        setStatusText('');
+        setQuestionCount(prev => prev + 1);
+        setIsCodingRound((questionCount) % 5 === 2);
+      } 
+      else if (eventType === 'status') {
+        setStatusText(data.message);
+      } 
+      else if (eventType === 'report') {
+        // Complete interview
+        if (onComplete) onComplete(data.report);
+      } 
+      else if (eventType === 'error') {
+        setMessages(prev => [...prev, { role: 'bot', content: `⚠️ **Error:** ${data.message}` }]);
+        setIsLoading(false);
+        setStatusText('');
+      }
+    };
+
+    ws.current.onclose = () => {
+      console.log('WebSocket disconnected');
+    };
+
+    return () => {
+      if (ws.current) ws.current.close();
+    };
+  }, [threadId, token]);
+
+  // Anti-Cheat: Tab switching
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && ws.current && ws.current.readyState === WebSocket.OPEN) {
+        setMessages(prev => [
+          ...prev, 
+          { 
+            role: 'bot', 
+            content: `⚠️ **ANTI-CHEAT WARNING**: Tab switching detected. This incident has been recorded and will impact your final evaluation.` 
+          }
+        ]);
+        ws.current.send(JSON.stringify({ action: "tab_switch" }));
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
+
+  // Timer
+  useEffect(() => {
+    setTimeLeft(timeLimit * 60);
+  }, [questionCount, timeLimit]);
 
   useEffect(() => {
-    setTimeLeft(timeLimitMinutes * 60);
-  }, [questionCount, timeLimitMinutes]);
-
-  useEffect(() => {
-    if (timeLimitMinutes === 0 || isLoading) return;
+    if (timeLimit === 0 || isLoading) return;
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          onSendMessage(input || "(Time Expired - Auto Submitted Blank Answer)");
-          setInput('');
+          handleSubmission(input || "(Time Expired - Auto Submitted Blank Answer)");
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [timeLeft, isLoading, timeLimitMinutes, onSendMessage, input]);
+  }, [timeLeft, isLoading, timeLimit, input]);
 
   const toggleRecording = () => {
     if (isRecording) {
@@ -69,31 +172,37 @@ const ChatWindow = ({ messages, onSendMessage, isLoading, timeLimitMinutes, ques
     recognition.start();
   };
 
-  const handleSend = (e) => {
-    e.preventDefault();
-    
-    // If it's a coding round and there is code, submit the code along with the message
-    let submission = input.trim();
+  const handleSubmission = (textPayload) => {
+    let submission = textPayload.trim();
     if (isCodingRound && codeValue.trim() !== '// Write your code here...') {
       submission += `\n\n\`\`\`${language}\n${codeValue}\n\`\`\``;
     }
     
-    if (submission && !isLoading) {
-      onSendMessage(submission);
+    if (submission && !isLoading && ws.current && ws.current.readyState === WebSocket.OPEN) {
+      setMessages(prev => [...prev, { role: 'user', content: submission }]);
+      setIsLoading(true);
+      setStatusText('Processing your response...');
+      ws.current.send(JSON.stringify({ action: "answer", text: submission }));
+      
       setInput('');
-      // Reset code for the next question
       if (isCodingRound) {
         setCodeValue('// Write your code here...\n');
       }
     }
   };
 
-  const requestHint = async () => {
-    if (hintLoading || isLoading) return;
-    setHintLoading(true);
-    const hintText = await getHint(messages);
-    onHintRequested(hintText);
-    setHintLoading(false);
+  const handleSend = (e) => {
+    e.preventDefault();
+    handleSubmission(input);
+  };
+
+  const requestHint = () => {
+    if (isLoading || !ws.current || ws.current.readyState !== WebSocket.OPEN) return;
+    setMessages(prev => [
+      ...prev,
+      { role: 'bot', content: `💡 **Hint Requested (-5 pts)**. Checking context...` }
+    ]);
+    ws.current.send(JSON.stringify({ action: "hint" }));
   };
 
   const formatTime = (seconds) => {
@@ -117,14 +226,14 @@ const ChatWindow = ({ messages, onSendMessage, isLoading, timeLimitMinutes, ques
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
           <button 
             onClick={requestHint}
-            disabled={isLoading || hintLoading}
+            disabled={isLoading}
             style={{
               background: 'rgba(234, 179, 8, 0.1)',
               color: 'var(--warning)',
               border: '1px solid rgba(234, 179, 8, 0.2)',
               padding: '0.5rem 1rem',
               borderRadius: '20px',
-              cursor: (isLoading || hintLoading) ? 'not-allowed' : 'pointer',
+              cursor: (isLoading) ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem',
@@ -132,10 +241,10 @@ const ChatWindow = ({ messages, onSendMessage, isLoading, timeLimitMinutes, ques
               fontWeight: '500'
             }}
           >
-            <Lightbulb size={16} /> {hintLoading ? 'Thinking...' : 'Get Hint (-5 pts)'}
+            <Lightbulb size={16} /> Get Hint (-5 pts)
           </button>
 
-          {timeLimitMinutes > 0 && (
+          {timeLimit > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: timeLeft < 60 ? 'var(--danger)' : 'var(--text-primary)', fontWeight: 'bold', fontSize: '1.2rem', fontFamily: 'monospace' }}>
               <Clock size={20} /> {formatTime(timeLeft)}
             </div>
@@ -188,30 +297,14 @@ const ChatWindow = ({ messages, onSendMessage, isLoading, timeLimitMinutes, ques
                 width: msg.role === 'bot' ? '100%' : 'auto',
                 border: msg.role === 'bot' ? '1px solid rgba(255,255,255,0.05)' : 'none'
               }}>
-                {msg.role === 'bot' ? (
-                  msg.content.includes('### Feedback') && msg.content.includes('### Next Question') ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
-                      <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '1rem', borderRadius: '12px', borderLeft: '4px solid var(--accent-primary)' }}>
-                        <div style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--accent-primary)', marginBottom: '0.5rem', fontWeight: 'bold' }}>Feedback on Last Answer</div>
-                        <ReactMarkdown>{msg.content.split('### Next Question')[0].replace('### Feedback', '').trim()}</ReactMarkdown>
-                      </div>
-                      <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1.2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <div style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 'bold' }}>Next Question</div>
-                        <ReactMarkdown>{msg.content.split('### Next Question')[1].trim()}</ReactMarkdown>
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ padding: '0', background: 'transparent' }}>
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
-                    </div>
-                  )
-                ) : (
-                  <ReactMarkdown>{msg.content}</ReactMarkdown>
-                )}
+                <div style={{ padding: '0', background: 'transparent' }}>
+                  <ReactMarkdown>{sanitizeContent(msg.content)}</ReactMarkdown>
+                </div>
               </div>
             </motion.div>
           ))}
-          {isLoading && (
+          
+          {isLoading && statusText && (
             <div style={{ display: 'flex', gap: '1rem' }}>
               <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Bot size={20} color="var(--accent-secondary)" />
@@ -221,7 +314,7 @@ const ChatWindow = ({ messages, onSendMessage, isLoading, timeLimitMinutes, ques
                   animate={{ opacity: [0.4, 1, 0.4] }}
                   transition={{ repeat: Infinity, duration: 1.5 }}
                 >
-                  Interviewer is typing...
+                  {statusText}
                 </motion.div>
               </div>
             </div>

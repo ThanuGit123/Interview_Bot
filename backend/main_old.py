@@ -1,12 +1,19 @@
 import os
 import json
+import uuid
+from datetime import datetime
 from typing import TypedDict, List, Dict, Any, Optional
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
+from pymongo import MongoClient
+from langgraph.checkpoint.mongodb import MongoDBSaver
+
 from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
+from langchain_mistralai import ChatMistralAI
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langgraph.graph import StateGraph, END
 
@@ -22,7 +29,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-llm = ChatGroq(
+primary_llm = ChatGroq(
     model="llama-3.1-8b-instant",
     temperature=0.7,
     max_tokens=None,
@@ -31,11 +38,43 @@ llm = ChatGroq(
     api_key=os.environ.get("GROQ_API_KEY")
 )
 
-json_llm = ChatGroq(
+mistral_fallback = ChatMistralAI(
+    model="mistral-large-latest",
+    temperature=0.7,
+    max_retries=2,
+    api_key=os.environ.get("MISTRAL_API")
+)
+
+cerebras_fallback = ChatOpenAI(
+    model="llama3.1-8b",
+    temperature=0.7,
+    max_retries=2,
+    api_key=os.environ.get("CEREBRAS_API"),
+    base_url="https://api.cerebras.ai/v1"
+)
+
+llm = primary_llm.with_fallbacks([mistral_fallback, cerebras_fallback])
+
+primary_json_llm = ChatGroq(
     model="llama-3.1-8b-instant",
     temperature=0.2,
     api_key=os.environ.get("GROQ_API_KEY")
 ).bind(response_format={"type": "json_object"})
+
+mistral_json = ChatMistralAI(
+    model="mistral-large-latest",
+    temperature=0.2,
+    api_key=os.environ.get("MISTRAL_API")
+).bind(response_format={"type": "json_object"})
+
+cerebras_json = ChatOpenAI(
+    model="llama3.1-8b",
+    temperature=0.2,
+    api_key=os.environ.get("CEREBRAS_API"),
+    base_url="https://api.cerebras.ai/v1"
+).bind(response_format={"type": "json_object"})
+
+json_llm = primary_json_llm.with_fallbacks([mistral_json, cerebras_json])
 
 def get_leetcode_difficulty(diff: str) -> str:
     diff = diff.lower()
@@ -226,8 +265,15 @@ workflow.add_edge("generate_hint_node", END)
 workflow.add_edge("evaluate_and_next_node", END)
 workflow.add_edge("final_review_node", END)
 
-app_graph = workflow.compile()
-
+mongodb_uri = os.environ.get("MONGODB_URI")
+if mongodb_uri:
+    client = MongoClient(mongodb_uri)
+    db = client["interview_bot"]
+    checkpointer = MongoDBSaver(client, db_name="interview_bot", collection_name="checkpoints")
+    app_graph = workflow.compile(checkpointer=checkpointer)
+else:
+    db = None
+    app_graph = workflow.compile()
 
 class ExtractSkillsRequest(BaseModel):
     resumeText: str
@@ -239,9 +285,11 @@ class GenerateQuestionsRequest(BaseModel):
     selectedSkills: List[str]
 
 class HintRequest(BaseModel):
+    threadId: Optional[str] = None
     chatHistory: List[Dict[str, str]]
 
 class EvaluateAnswerRequest(BaseModel):
+    threadId: Optional[str] = None
     resumeText: str
     difficulty: str
     chatHistory: List[Dict[str, str]]
@@ -272,26 +320,46 @@ Respond ONLY with a valid JSON object matching this exact structure:
 
 @app.post("/api/generate-questions")
 async def api_generate_questions(req: GenerateQuestionsRequest):
+    thread_id = str(uuid.uuid4())
+    config = {"configurable": {"thread_id": thread_id}}
+    
     result = app_graph.invoke({
         "action": "start",
         "resume_text": req.resumeText,
         "difficulty": req.difficulty,
         "max_questions": req.maxQuestions,
-        "selected_skills": req.selectedSkills
-    })
-    return {"message": result["output_message"], "context": "Interview started."}
+        "selected_skills": req.selectedSkills,
+        "chat_history": []
+    }, config=config)
+    
+    if db is not None:
+        db.interviews.insert_one({
+            "thread_id": thread_id,
+            "resume_text": req.resumeText,
+            "difficulty": req.difficulty,
+            "selected_skills": req.selectedSkills,
+            "status": "in_progress",
+            "score": None,
+            "verdict": None,
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M")
+        })
+        
+    return {"message": result["output_message"], "context": "Interview started.", "thread_id": thread_id}
 
 @app.post("/api/get-hint")
 async def api_get_hint(req: HintRequest):
+    config = {"configurable": {"thread_id": req.threadId}} if req.threadId else None
+    
     result = app_graph.invoke({
         "action": "hint",
         "chat_history": req.chatHistory
-    })
+    }, config=config)
     return {"hint": result["hint_message"]}
 
 @app.post("/api/evaluate-answer")
 async def api_evaluate_answer(req: EvaluateAnswerRequest):
     action = "final" if req.isFinalQuestion else "evaluate"
+    config = {"configurable": {"thread_id": req.threadId}} if req.threadId else None
     
     result = app_graph.invoke({
         "action": action,
@@ -305,12 +373,39 @@ async def api_evaluate_answer(req: EvaluateAnswerRequest):
         "current_round": req.currentRound,
         "max_questions": req.maxQuestions,
         "selected_skills": req.selectedSkills
-    })
+    }, config=config)
     
     if req.isFinalQuestion:
-        return {"isReport": True, "reportData": result["report_data"]}
+        report = result.get("report_data", {})
+        if db is not None and req.threadId:
+            db.interviews.update_one(
+                {"thread_id": req.threadId},
+                {"$set": {
+                    "status": "completed",
+                    "score": report.get("overallScore"),
+                    "verdict": report.get("finalVerdict"),
+                    "report_data": report
+                }}
+            )
+        return {"isReport": True, "reportData": report}
     else:
         return {"message": result["output_message"], "isReport": False}
+
+@app.get("/api/history")
+async def api_history():
+    if db is not None:
+        docs = list(db.interviews.find({"status": "completed"}, {"_id": 0}).sort("date", -1))
+        history = []
+        for d in docs:
+            history.append({
+                "date": d.get("date"),
+                "score": d.get("score"),
+                "difficulty": d.get("difficulty"),
+                "verdict": d.get("verdict"),
+                "thread_id": d.get("thread_id")
+            })
+        return history
+    return []
 
 if __name__ == "__main__":
     import uvicorn
