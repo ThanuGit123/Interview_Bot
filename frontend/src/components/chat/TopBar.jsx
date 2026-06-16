@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Sun, Moon, User, LogOut, Sparkles } from 'lucide-react'
+import { Sun, Moon, LogOut, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -13,10 +13,13 @@ import {
 import { useChatStore } from '@/store/chatStore'
 import { getTheme, applyTheme } from '@/lib/theme'
 
-export default function TopBar({ onLogout }) {
+export default function TopBar({ onLogout, user }) {
   const { threads, activeThreadId } = useChatStore()
   const active = threads.find((t) => t.id === activeThreadId)
   const [theme, setTheme] = useState(getTheme())
+  const name = user?.name || 'Account'
+  const email = user?.email || ''
+  const initial = (user?.name || user?.email || '?').trim().charAt(0).toUpperCase()
 
   const toggle = () => {
     const next = theme === 'dark' ? 'light' : 'dark'
@@ -56,14 +59,17 @@ export default function TopBar({ onLogout }) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-primary ring-1 ring-primary/10 transition-opacity hover:opacity-80"
-              title="Account"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary ring-1 ring-primary/10 transition-opacity hover:opacity-80"
+              title={name}
             >
-              <User className="h-4 w-4" />
+              {initial}
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuLabel>Account</DropdownMenuLabel>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel className="flex flex-col gap-0.5">
+              <span className="truncate text-sm font-medium text-foreground">{name}</span>
+              {email && <span className="truncate text-xs font-normal text-muted-foreground">{email}</span>}
+            </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onLogout}>
               <LogOut className="h-4 w-4" /> Logout

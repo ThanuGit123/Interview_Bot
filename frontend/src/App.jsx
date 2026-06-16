@@ -128,6 +128,7 @@ export default function App() {
     localStorage.removeItem('careerForgeUserId')
     resetActive()
     setThreads([])
+    setUser(null)
     setView('auth')
   }
 
@@ -152,7 +153,7 @@ export default function App() {
         onDelete={handleDelete}
       />
       <main className="flex min-w-0 flex-1 flex-col">
-        <TopBar onLogout={logout} />
+        <TopBar onLogout={logout} user={user} />
         <ChatPanel ensureThread={ensureThread} />
       </main>
       <Toaster position="top-right" richColors />
