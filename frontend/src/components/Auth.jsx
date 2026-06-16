@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Lock, Mail, User as UserIcon, ArrowRight } from 'lucide-react';
+import { Lock, Mail, User as UserIcon, ArrowRight, ArrowLeft } from 'lucide-react';
 
-const Auth = ({ onLoginSuccess }) => {
+const Auth = ({ onLoginSuccess, onBack }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,7 +24,7 @@ const Auth = ({ onLoginSuccess }) => {
         
       const headers = { 'Content-Type': 'application/json' };
 
-      const response = await fetch(`http://localhost:5000${endpoint}`, {
+      const response = await fetch(`http://localhost:8000${endpoint}`, {
         method: 'POST',
         headers,
         body: payload
@@ -69,7 +69,19 @@ const Auth = ({ onLoginSuccess }) => {
         <div style={{ position: 'absolute', inset: 0, opacity: 0.3, backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.15) 1px, transparent 1px)', backgroundSize: '24px 24px', zIndex: 0 }} />
 
         <div style={{ position: 'relative', zIndex: 10, padding: '3rem 2rem 2.5rem' }}>
-          
+
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              style={{ position: 'absolute', top: '1rem', left: '1rem', display: 'flex', alignItems: 'center', gap: '0.35rem', background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 500, padding: '0.4rem 0.5rem', borderRadius: '8px', transition: 'color 0.2s' }}
+              onMouseOver={(e) => (e.currentTarget.style.color = '#94a3b8')}
+              onMouseOut={(e) => (e.currentTarget.style.color = '#64748b')}
+            >
+              <ArrowLeft size={15} /> Back to home
+            </button>
+          )}
+
           <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
             <h1 style={{ 
               fontSize: '2.4rem', 
@@ -77,7 +89,7 @@ const Auth = ({ onLoginSuccess }) => {
               margin: '0 0 0.5rem 0',
               color: '#3b82f6', // Solid brighter blue like screenshot
             }}>
-              Interview Bot
+              Caliber
             </h1>
             <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>
               Your AI interview trainer

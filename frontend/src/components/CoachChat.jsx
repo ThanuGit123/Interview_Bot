@@ -95,7 +95,7 @@ const CoachChat = ({ threadId, token, onProceed, resumeText, setResumeText, extr
   }, [messages, isLoading, statusText]);
 
   useEffect(() => {
-    const wsUrl = `ws://localhost:5000/api/ws/threads/${threadId}?token=${token}`;
+    const wsUrl = `ws://localhost:8000/api/ws/threads/${threadId}?token=${token}`;
     ws.current = new WebSocket(wsUrl);
 
     ws.current.onopen = () => {

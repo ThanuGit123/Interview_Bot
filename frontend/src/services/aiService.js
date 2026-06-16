@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'http://localhost:8000/api';
 
 const getHeaders = () => {
   const token = localStorage.getItem('careerForgeToken');
@@ -8,13 +8,21 @@ const getHeaders = () => {
   };
 };
 
-export const uploadResume = async (resumeText) => {
+export const uploadResume = async (file) => {
+  const token = localStorage.getItem('careerForgeToken');
+  const formData = new FormData();
+  formData.append('file', file);
   const response = await fetch(`${API_URL}/resumes/`, {
     method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify({ extracted_text: resumeText })
+    // NOTE: do NOT set Content-Type — the browser sets the multipart boundary itself.
+    headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+    body: formData
   });
-  if (!response.ok) throw new Error("Failed to upload resume");
+  if (!response.ok) {
+    let detail = "Failed to upload resume";
+    try { const err = await response.json(); detail = err.message || detail; } catch (_) {}
+    throw new Error(detail);
+  }
   return await response.json();
 };
 

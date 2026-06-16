@@ -10,7 +10,7 @@ const LandingPage = ({ onGetStarted }) => {
       <nav className="lp-navbar">
         <div className="lp-logo">
           <Bot size={28} color="#38bdf8" />
-          Interview Bot
+          Caliber
         </div>
         <div className="lp-nav-links">
           <a href="#features">Features</a>
@@ -68,7 +68,7 @@ const LandingPage = ({ onGetStarted }) => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
             src="/hero_mockup.png" 
-            alt="Interview Bot Dashboard Mockup" 
+            alt="Caliber Dashboard Mockup" 
             className="lp-hero-image"
           />
         </div>
@@ -92,7 +92,7 @@ const LandingPage = ({ onGetStarted }) => {
         <div className="lp-cta-card">
           <h2 className="lp-cta-title">Ready to Ace Your Next Round?</h2>
           <p className="lp-cta-subtitle">
-            Join 50,000+ engineers who used Interview Bot to land offers at their dream companies. Start practicing today.
+            Join 50,000+ engineers who used Caliber to land offers at their dream companies. Start practicing today.
           </p>
           <div className="lp-cta-actions">
             <button className="lp-btn-white" onClick={onGetStarted}>Get Lifetime Access</button>
@@ -107,7 +107,7 @@ const LandingPage = ({ onGetStarted }) => {
           <div className="lp-footer-brand">
             <div className="lp-logo">
               <Bot size={24} color="#38bdf8" />
-              Interview Bot
+              Caliber
             </div>
             <p>The world's most advanced AI platform for engineering interview preparation. Master the craft, land the job.</p>
           </div>

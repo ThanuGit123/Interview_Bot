@@ -68,19 +68,94 @@ def build_context(
     
     return final_messages
 
+SUMMARY_PROMPT = """You maintain a concise running memory of a chat between a candidate and Caliber (an AI interview & resume coach).
+Merge the OLD SUMMARY with the NEW MESSAGES into one updated summary, 4-8 sentences, past tense.
+KEEP: topics discussed, facts established from the resume, interview questions asked and how the candidate performed, strengths/weaknesses shown, and anything still pending.
+DROP: greetings, filler, raw code dumps.
+
+OLD SUMMARY:
+{old}
+
+NEW MESSAGES:
+{new}
+
+Updated running summary:"""
+
+
 async def update_summary_task(thread_id: str, user_id: str):
+    """Background, non-blocking: compress older messages into threads.running_summary.
+
+    Window = messages from summary_covers_until up to len-KEEP_RECENT (the most
+    recent KEEP_RECENT stay verbatim in context). Uses the LLM pool's cheapest path.
     """
-    Background task to summarize older messages.
-    Stubbed for now until LLM pool is wired in Part 5.
-    """
+    from app.db.client import get_db
+    from app.core.llm import get_llm
+
     logger.info("summary_task_started", thread_id=thread_id)
-    # Placeholder for the actual DB fetch and LLM call
-    await asyncio.sleep(0.1) 
-    logger.info("summary_task_completed", thread_id=thread_id, covers_until=0, tokens=0)
+    try:
+        db = get_db()
+        thread = db.threads.find_one({"_id": thread_id, "user_id": user_id})
+        if not thread:
+            return
+        covered = thread.get("summary_covers_until", 0)
+        msgs = list(db.messages.find({"thread_id": thread_id, "user_id": user_id}).sort("created_at", 1))
+        window_end = max(0, len(msgs) - KEEP_RECENT)
+        window = msgs[covered:window_end]
+        if not window:
+            return
+
+        rendered = "\n".join(
+            f"{'Candidate' if m.get('role') == 'user' else 'Caliber'}: {m.get('content', '')}" for m in window
+        )
+        prompt = SUMMARY_PROMPT.format(old=thread.get("running_summary") or "(none yet)", new=rendered[:8000])
+        resp = await get_llm().ainvoke([SystemMessage(content=prompt)])
+        new_summary = (resp.content or "").strip()
+        if not new_summary:
+            return
+        db.threads.update_one(
+            {"_id": thread_id, "user_id": user_id},
+            {"$set": {"running_summary": new_summary, "summary_covers_until": window_end}},
+        )
+        logger.info("summary_updated", thread_id=thread_id, covers_until=window_end, tokens=count_tokens(new_summary))
+    except Exception as e:
+        # Summary is "color", never truth — a failure must never break the chat.
+        logger.warning("summary_failed", thread_id=thread_id, error=str(e))
+
 
 def trigger_summary_if_needed(thread_id: str, user_id: str, message_count: int, summary_covers_until: int):
-    """
-    Checks if unsummarized messages exceed the threshold and spawns a background task.
-    """
+    """Spawn the summary task when unsummarized messages exceed the threshold."""
     if message_count - summary_covers_until > SUMMARY_THRESHOLD:
         asyncio.create_task(update_summary_task(thread_id, user_id))
+
+
+async def maybe_generate_title(thread_id: str, user_id: str):
+    """Generate a concise conversation title from the first exchange (once per thread).
+
+    Returns the new title (str) if generated, else None. Avoids naive titles like "hi".
+    """
+    from app.db import repositories as repo
+    from app.core.llm import get_llm
+
+    thread = repo.get_thread(user_id, thread_id)
+    if not thread or thread.get("title_generated"):
+        return None
+    msgs = repo.list_messages(thread_id, user_id)
+    if len(msgs) < 2:  # need at least one user + one assistant turn
+        return None
+
+    convo = "\n".join(f"{m.get('role')}: {m.get('content', '')[:300]}" for m in msgs[:4])
+    prompt = (
+        "Generate a SHORT 3-6 word title that summarizes what this conversation is about. "
+        "No quotes, no trailing punctuation, Title Case. If it's a resume review say e.g. "
+        "'Resume Review – Backend'. Conversation:\n\n" + convo + "\n\nTitle:"
+    )
+    try:
+        resp = await get_llm().ainvoke([SystemMessage(content=prompt)])
+        title = (resp.content or "").strip().strip('"').strip().splitlines()[0][:60]
+        if title:
+            repo.update_thread(user_id, thread_id, {"title": title, "title_generated": True})
+            logger.info("title_generated", thread_id=thread_id, title=title)
+            return title
+    except Exception as e:
+        logger.warning("title_gen_failed", thread_id=thread_id, error=str(e))
+    return None

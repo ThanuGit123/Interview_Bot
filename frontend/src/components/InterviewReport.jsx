@@ -185,7 +185,7 @@ const InterviewReport = ({ reportData, onRestart, messages }) => {
   const hintsUsed = counters.hints_used || 0;
 
   const handleDownload = () => {
-    let content = `# Interview Bot - Full Performance Report\n\n`;
+    let content = `# Caliber - Full Performance Report\n\n`;
     content += `**Date:** ${new Date().toLocaleDateString()}\n`;
     content += `**Final Score:** ${score}/100\n`;
     content += `**Verdict:** ${verdict}\n\n`;
