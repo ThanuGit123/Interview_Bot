@@ -10,8 +10,12 @@ from app.core.errors import AppError
 
 logger = structlog.get_logger(__name__)
 
-JWT_SECRET = os.environ.get("JWT_SECRET", "super-secret-dev-key")
+JWT_SECRET = os.environ.get("JWT_SECRET", "")
 ALGORITHM = "HS256"
+
+if not JWT_SECRET:
+    # Fail loud: never sign tokens with a guessable default in any environment.
+    raise RuntimeError("JWT_SECRET is not set. Add a strong JWT_SECRET to backend/.env.")
 
 def get_password_hash(password: str) -> str:
     salt = bcrypt.gensalt()

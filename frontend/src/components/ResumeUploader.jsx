@@ -18,21 +18,18 @@ const ResumeUploader = ({ onUploadComplete }) => {
   };
 
   const processFile = (selectedFile) => {
-    if (selectedFile && (selectedFile.type === 'text/plain' || selectedFile.name.endsWith('.md') || selectedFile.name.endsWith('.txt'))) {
+    const name = (selectedFile?.name || '').toLowerCase();
+    const isSupported = name.endsWith('.pdf') || name.endsWith('.docx') || name.endsWith('.txt') || name.endsWith('.md');
+    if (selectedFile && isSupported) {
       setFile(selectedFile);
       setIsUploading(true);
-      
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        // Dramatic 3-second laser scan animation before proceeding
-        setTimeout(() => {
-          setIsUploading(false);
-          onUploadComplete(e.target.result);
-        }, 3000); 
-      };
-      reader.readAsText(selectedFile);
+      // Scan animation, then hand the raw File to the backend for extraction.
+      setTimeout(() => {
+        setIsUploading(false);
+        onUploadComplete(selectedFile);
+      }, 1500);
     } else {
-      alert("Please upload a .txt or .md file for this demo.");
+      alert("Please upload a PDF, DOCX, TXT, or MD file.");
     }
   };
 
@@ -85,7 +82,7 @@ const ResumeUploader = ({ onUploadComplete }) => {
           type="file" 
           id="resume-upload" 
           style={{ display: 'none' }} 
-          accept=".txt,.md" 
+          accept=".pdf,.docx,.txt,.md"
           onChange={handleChange}
           disabled={isUploading}
         />
@@ -113,7 +110,7 @@ const ResumeUploader = ({ onUploadComplete }) => {
               </div>
               <h3 style={{ marginBottom: '0.75rem', fontSize: '1.5rem', color: '#f8fafc', fontWeight: '700' }}>Drag & Drop Resume</h3>
               <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '2.5rem' }}>
-                Supported formats: TXT, MD (Max ~10KB)
+                Supported formats: PDF, DOCX, TXT, MD (Max 5MB)
               </p>
               
               <button style={{

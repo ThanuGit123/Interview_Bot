@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 from langchain_core.tools import tool
 from app.db.client import get_db
+from app.db import repositories as repo
 
 logger = structlog.get_logger(__name__)
 
@@ -14,11 +15,10 @@ def get_resume_text(config: RunnableConfig) -> str:
     user_id = config["configurable"]["user_id"]
     thread_id = config["configurable"]["thread_id"]
     logger.info("tool_call", tool="get_resume_text", thread_id=thread_id)
-    db = get_db()
-    thread = db.threads.find_one({"_id": thread_id, "user_id": user_id})
+    thread = repo.get_thread(user_id, thread_id)
     if not thread or not thread.get("resume_id"):
         return "No resume provided."
-    resume = db.resumes.find_one({"_id": thread.get("resume_id"), "user_id": user_id})
+    resume = repo.get_resume(user_id, thread.get("resume_id"))
     return resume.get("extracted_text", "No resume content found.") if resume else "No resume found."
 
 @tool
@@ -27,8 +27,7 @@ def list_asked_questions(config: RunnableConfig) -> str:
     user_id = config["configurable"]["user_id"]
     thread_id = config["configurable"]["thread_id"]
     logger.info("tool_call", tool="list_asked_questions", thread_id=thread_id)
-    db = get_db()
-    thread = db.threads.find_one({"_id": thread_id, "user_id": user_id})
+    thread = repo.get_thread(user_id, thread_id)
     if not thread:
         return "No questions asked yet."
     questions = thread.get("asked_questions", [])
@@ -102,4 +101,8 @@ def record_hint_given(config: RunnableConfig) -> str:
     )
     return "Hint penalty applied."
 
-agent_tools = [record_round_grade, record_hint_given]
+# NOTE: The small free-tier model (llama-3.1-8b) emits tool calls as literal text
+# instead of native tool_calls, which leaks XML-ish tags into the chat. The resume
+# and full conversation are already injected into context, so the agent needs no
+# tools — we run tool-less for reliability. (Re-enable on a stronger model.)
+agent_tools = []

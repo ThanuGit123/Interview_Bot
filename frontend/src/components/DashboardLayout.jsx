@@ -42,7 +42,7 @@ const DashboardLayout = ({ children, activeTab = 'new', onTabChange, onLogout })
         <div style={{ width: '260px', display: 'flex', flexDirection: 'column', padding: '2rem 1.5rem', background: '#0b1120' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '3rem' }}>
             <Bot size={28} color="#3b82f6" />
-            <h1 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#3b82f6', margin: 0 }}>Interview Bot</h1>
+            <h1 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#3b82f6', margin: 0 }}>Caliber</h1>
           </div>
 
           <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>

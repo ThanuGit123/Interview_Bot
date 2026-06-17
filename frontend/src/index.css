@@ -1,36 +1,90 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-:root {
-  --bg-primary: #0B1120;
-  --bg-secondary: #111827;
-  --bg-tertiary: #1E293B;
-  --accent-primary: #2563EB;
-  --accent-secondary: #3B82F6;
-  --text-primary: #F8FAFC;
-  --text-secondary: #94A3B8;
-  --success: #10B981;
-  --warning: #F59E0B;
-  --danger: #EF4444;
-  --border-color: rgba(255, 255, 255, 0.08);
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* LIGHT theme (default :root) */
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 214 95% 95%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 160 84% 39%;
+    --warning: 38 92% 50%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
+    --radius: 0.75rem;
+
+    /* legacy vars (Auth/Landing are dark-styled screens) */
+    --bg-primary: #0b1120;
+    --bg-secondary: #111827;
+    --bg-tertiary: #1e293b;
+    --bg-glass: rgba(17, 24, 39, 0.6);
+    --accent-primary: #2563eb;
+    --accent-secondary: #3b82f6;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --success-hex: #10b981;
+    --warning-hex: #f59e0b;
+    --danger: #ef4444;
+    --border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .dark {
+    /* DARK theme */
+    --background: 222 47% 8%;
+    --foreground: 210 40% 98%;
+    --card: 222 40% 11%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 44% 10%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 15%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --success: 160 84% 39%;
+    --warning: 38 92% 50%;
+    --border: 217 24% 20%;
+    --input: 217 24% 20%;
+    --ring: 221 83% 53%;
+  }
+
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, sans-serif;
+    margin: 0;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-body {
-  font-family: 'Inter', sans-serif;
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  overflow-x: hidden;
-}
-
-/* Glassmorphism utility */
+/* Glassmorphism utility (used by Auth/Landing) */
 .glass-panel {
   background: var(--bg-glass);
   backdrop-filter: blur(12px);
@@ -39,17 +93,52 @@ body {
   border-radius: 16px;
 }
 
-/* Scrollbar styling */
+/* Scrollbars */
 ::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--bg-secondary);
+  background: hsl(var(--secondary));
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-primary);
+  background: hsl(var(--primary));
 }
+
+/* Markdown (assistant messages) */
+.prose-chat {
+  line-height: 1.65;
+  word-break: break-word;
+}
+.prose-chat p { margin: 0.5rem 0; }
+.prose-chat p:first-child { margin-top: 0; }
+.prose-chat p:last-child { margin-bottom: 0; }
+.prose-chat h1 { font-size: 1.15rem; font-weight: 700; margin: 1rem 0 0.5rem; }
+.prose-chat h2 { font-size: 1.05rem; font-weight: 700; margin: 1rem 0 0.45rem; }
+.prose-chat h3 { font-size: 1rem; font-weight: 600; margin: 0.85rem 0 0.4rem; }
+.prose-chat strong { font-weight: 600; color: hsl(var(--foreground)); }
+.prose-chat ul { margin: 0.5rem 0; padding-left: 1.4rem; list-style: disc; }
+.prose-chat ol { margin: 0.5rem 0; padding-left: 1.4rem; list-style: decimal; }
+.prose-chat li { margin: 0.25rem 0; padding-left: 0.15rem; }
+.prose-chat li::marker { color: hsl(var(--muted-foreground)); }
+.prose-chat code {
+  background: hsl(var(--muted));
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+.prose-chat pre {
+  background: hsl(var(--muted));
+  padding: 0.85rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 0.6rem 0;
+}
+.prose-chat pre code { background: transparent; padding: 0; }
+.prose-chat a { color: hsl(var(--primary)); text-decoration: underline; }
+.prose-chat table { border-collapse: collapse; margin: 0.6rem 0; width: 100%; }
+.prose-chat th, .prose-chat td { border: 1px solid hsl(var(--border)); padding: 0.4rem 0.6rem; text-align: left; }
