@@ -57,6 +57,19 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view])
 
+  // Any authenticated request that 401s (expired/invalid token) bounces to login.
+  useEffect(() => {
+    const onUnauth = () => {
+      resetActive()
+      setThreads([])
+      setUser(null)
+      setView('auth')
+    }
+    window.addEventListener('caliber:unauthorized', onUnauth)
+    return () => window.removeEventListener('caliber:unauthorized', onUnauth)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleLoggedIn = async () => {
     try {
       setUser(await api.me())

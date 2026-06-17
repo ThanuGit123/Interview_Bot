@@ -34,6 +34,12 @@ async function request(path, { method = 'GET', body, isForm } = {}) {
     } catch (_) {
       /* non-JSON error */
     }
+    // Expired/invalid session on an authenticated request → clear + bounce to login.
+    if (res.status === 401 && getToken()) {
+      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem('careerForgeUserId')
+      window.dispatchEvent(new Event('caliber:unauthorized'))
+    }
     const e = new Error(message)
     e.traceId = traceId
     e.code = code

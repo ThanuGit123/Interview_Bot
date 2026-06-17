@@ -135,14 +135,27 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str, token: str = 
             resume = repo.get_resume(user_id, thread_fresh["resume_id"]) if thread_fresh.get("resume_id") else None
 
             if resume:
+                resume_ids = thread_fresh.get("resume_ids") or []
+                multi_note = ""
+                if len(resume_ids) > 1:
+                    multi_note = (
+                        f"\n\nNOTE: The user has uploaded {len(resume_ids)} resumes in this chat. "
+                        f"The text below is the MOST RECENT one ('{resume.get('filename', 'resume')}'). "
+                        "Work with this latest resume by default; only refer to an earlier upload if the user explicitly asks about it."
+                    )
                 dynamic_context = (
-                    "A resume IS attached to this conversation. Use it to ground every claim.\n"
-                    'Resume text:\n"""\n' + (resume.get("extracted_text", "")[:12000]) + '\n"""'
+                    "A resume IS attached to this conversation. Ground every claim in it.\n"
+                    'Resume text:\n"""\n' + (resume.get("extracted_text", "")[:12000]) + '\n"""' + multi_note
                 )
             else:
                 dynamic_context = (
-                    "No resume is attached yet. If the user wants resume analysis or a "
-                    "resume-grounded interview, ask them to upload one with the 📎 button."
+                    "CRITICAL — NO resume is attached to this conversation. You do NOT have the user's resume. "
+                    "You therefore CANNOT review, score, or analyze a resume, and you must NOT invent or assume ANY "
+                    "resume content, skills, experience, employers, or an ATS score. "
+                    "If the user asks to review their resume, give an ATS score, or run a resume-grounded interview, "
+                    "respond with ONE short line asking them to upload their resume with the 📎 button — do NOT output "
+                    "a score, strengths, fixes, or any made-up resume review. "
+                    "For general questions (not about their specific resume), answer normally."
                 )
 
             messages = build_context(
