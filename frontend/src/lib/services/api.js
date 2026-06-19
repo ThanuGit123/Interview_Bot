@@ -66,6 +66,8 @@ export const attachResume = (threadId, resumeId) =>
 
 // ---- Resumes ----
 export const getResume = (resumeId) => request(`/resumes/${resumeId}`)
+export const getAtsReport = (resumeId, role) => request(`/resumes/${resumeId}/ats-report${role ? `?role=${encodeURIComponent(role)}` : ''}`)
+export const getLatexResume = (resumeId, role) => request(`/resumes/${resumeId}/latex${role ? `?role=${encodeURIComponent(role)}` : ''}`)
 export async function getResumeFile(resumeId) {
   const res = await fetch(`${BASE}/resumes/${resumeId}/file`, { headers: authHeaders() })
   if (!res.ok) throw new Error('Could not load the original file')

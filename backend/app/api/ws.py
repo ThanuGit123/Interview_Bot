@@ -143,9 +143,13 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str, token: str = 
                         f"The text below is the MOST RECENT one ('{resume.get('filename', 'resume')}'). "
                         "Work with this latest resume by default; only refer to an earlier upload if the user explicitly asks about it."
                     )
+                from app.services.context_aggregator import InterviewContextAggregator
+                resume_text = (resume.get("extracted_text", "")[:12000]) + multi_note
+                search_context = resume.get("search_context", None)
+                aggregated = InterviewContextAggregator.aggregate(resume_text, search_context)
                 dynamic_context = (
                     "A resume IS attached to this conversation. Ground every claim in it.\n"
-                    'Resume text:\n"""\n' + (resume.get("extracted_text", "")[:12000]) + '\n"""' + multi_note
+                    + aggregated
                 )
             else:
                 dynamic_context = (

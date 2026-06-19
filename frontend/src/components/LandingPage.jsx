@@ -9,7 +9,7 @@ const LandingPage = ({ onGetStarted }) => {
       {/* Navbar */}
       <nav className="lp-navbar">
         <div className="lp-logo">
-          <Bot size={28} color="#38bdf8" />
+          <Bot size={28} className="text-primary" />
           Caliber
         </div>
         <div className="lp-nav-links">
@@ -106,7 +106,7 @@ const LandingPage = ({ onGetStarted }) => {
         <div className="lp-footer-grid">
           <div className="lp-footer-brand">
             <div className="lp-logo">
-              <Bot size={24} color="#38bdf8" />
+              <Bot size={24} className="text-primary" />
               Caliber
             </div>
             <p>The world's most advanced AI platform for engineering interview preparation. Master the craft, land the job.</p>
