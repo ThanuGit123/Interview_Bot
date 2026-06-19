@@ -12,6 +12,30 @@ from app.core import config as cfg
 logger = structlog.get_logger(__name__)
 
 from langchain_core.runnables import RunnableConfig
+from app.services.github_service import fetch_github_profile, extract_github_username, format_profile_summary
+
+
+@tool
+def github_profile(query: str, config: RunnableConfig = None) -> str:
+    """Fetch and review a candidate's PUBLIC GitHub profile.
+
+    Call this whenever the user shares a GitHub URL or username (e.g.
+    "https://github.com/octocat" or "octocat") and asks you to look at their
+    GitHub, repos, activity, contributions, or how to improve it. It returns
+    FACTUAL public data (repos, languages, stars, recent activity, streak) — use
+    those real numbers in your review; never invent commits, stars, or streaks.
+    Pass the github.com URL or the bare username as `query`.
+    """
+    thread_id = (config or {}).get("configurable", {}).get("thread_id") if config else None
+    logger.info("tool_call", tool="github_profile", thread_id=thread_id, query=query)
+    username = extract_github_username(query)
+    if not username:
+        return "No valid GitHub username or github.com URL was provided. Ask the user for their GitHub link."
+    profile = fetch_github_profile(username)
+    if not profile:
+        return (f"Couldn't fetch the GitHub profile for '{username}' — it may not exist, be private, or GitHub is "
+                "rate-limited right now. Ask the user to confirm their GitHub username.")
+    return format_profile_summary(profile)
 
 
 def _ws_artifact(query: str, results: list | None = None, error: str | None = None) -> dict:
@@ -204,13 +228,17 @@ def record_hint_given(config: RunnableConfig) -> str:
     )
     return "Hint penalty applied."
 
-# Active agent tools. Only `web_search` is enabled: it gives the agent live,
-# post-training-cutoff knowledge it genuinely lacks. The current pool model
-# (Groq llama-3.3-70b-versatile, see core/llm.py) emits native tool_calls, so
-# this no longer leaks tool syntax into the chat.
+# Active agent tools. The current pool model (Groq llama-3.3-70b-versatile, see
+# core/llm.py) emits native tool_calls, so enabling tools no longer leaks tool
+# syntax into the chat.
+#   • web_search       — live, post-cutoff knowledge the model genuinely lacks.
+#   • github_profile   — fetch + review a candidate's public GitHub when they
+#     share a URL/username (repos, stars, streak, activity). Factual data only.
+#   • record_round_grade — persists per-question grades during a mock interview;
+#     the system prompt (prompts/agent.md) instructs the model to call it, and
+#     services/report.py reads round_grades to build the final report. Without it
+#     enabled the prompt would reference a non-existent tool.
 #
-# The interview-grading tools below (get_resume_text, list_asked_questions,
-# record_round_grade, record_hint_given) stay OFF by design — the resume and
-# full conversation are already injected into context, so the agent doesn't
-# need them. Re-add them here only if/when the grading pipeline is wired up.
-agent_tools = [web_search]
+# get_resume_text / list_asked_questions / record_hint_given stay OFF: the resume
+# and full conversation are already in context, so the model doesn't need them.
+agent_tools = [web_search, github_profile, record_round_grade]

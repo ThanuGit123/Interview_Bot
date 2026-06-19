@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { X, FileText, Loader2, BarChart2, FileCode2 } from 'lucide-react'
+import { X, FileText, Loader2, BarChart2, FileCode2, Maximize2, Minimize2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import * as api from '@/lib/services/api'
@@ -8,6 +8,7 @@ import LatexResume from './LatexResume'
 
 export default function ResumePreview({ resumeId, filename, onClose }) {
   const isPdf = (filename || '').toLowerCase().endsWith('.pdf')
+  const [expanded, setExpanded] = useState(false)
   const [activeTab, setActiveTab] = useState('resume') // 'resume' | 'ats' | 'latex'
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -71,24 +72,43 @@ export default function ResumePreview({ resumeId, filename, onClose }) {
         }
       };
       loadAts();
-      return () => { 
-        cancelled = true; 
-        setAtsLoading(false); 
+      return () => {
+        cancelled = true;
+        setAtsLoading(false);
       };
     }
   }, [activeTab, atsData, resumeId]);
 
+  // Force a fresh ATS analysis (bypasses the server-side cache).
+  const regenerateAts = async () => {
+    setAtsLoading(true)
+    setError(null)
+    try {
+      const report = await api.getAtsReport(resumeId, null, true)
+      setAtsData(report)
+    } catch (e) {
+      setError(e.message || 'Failed to regenerate ATS report')
+    } finally {
+      setAtsLoading(false)
+    }
+  }
+
   return (
-    <aside className="flex h-full w-[600px] shrink-0 flex-col border-l border-border bg-card/40 animate-fade-in z-50 shadow-2xl relative">
+    <aside className={`flex h-full flex-col border-l border-border bg-card animate-fade-in z-50 shadow-2xl transition-all duration-200 ${expanded ? 'absolute right-0 top-0 w-[min(1100px,92vw)]' : 'relative w-[600px] shrink-0'}`}>
       <div className="flex flex-col border-b border-border bg-card/60 px-4 py-3 pb-0">
         <div className="flex items-center justify-between mb-3">
           <div className="flex min-w-0 items-center gap-2">
             <FileText className="h-4 w-4 shrink-0 text-primary" />
             <span className="truncate text-sm font-medium">{filename || 'Resume'}</span>
           </div>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose} title="Close preview">
-            <X className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-0.5">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setExpanded((v) => !v)} title={expanded ? 'Shrink panel' : 'Expand panel'}>
+              {expanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose} title="Close preview">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Tab Switcher */}
@@ -120,7 +140,7 @@ export default function ResumePreview({ resumeId, filename, onClose }) {
         ) : error ? (
           <div className="flex flex-1 items-center justify-center p-4 text-center text-sm text-destructive">{error}</div>
         ) : isPdf && pdfUrl ? (
-          <iframe title="Resume preview" src={pdfUrl} className="h-full w-full flex-1 border-0 bg-white" />
+          <iframe title="Resume preview" src={`${pdfUrl}#toolbar=0&navpanes=0&view=FitH`} className="h-full w-full flex-1 border-0 bg-white" />
         ) : (
           <ScrollArea className="flex-1">
             <pre className="whitespace-pre-wrap break-words p-4 font-sans text-[13px] leading-relaxed text-foreground/90">
@@ -135,7 +155,7 @@ export default function ResumePreview({ resumeId, filename, onClose }) {
             <Loader2 className="h-6 w-6 animate-spin" /> Generating Analysis & Optimized Resume... (This takes about 15-30 seconds)
           </div>
         ) : atsData ? (
-          <AtsReport reportData={atsData} resumeId={resumeId} />
+          <AtsReport reportData={atsData} resumeId={resumeId} onRegenerate={regenerateAts} />
         ) : error === "NO_ROLE" ? (
           <div className="flex flex-1 items-center justify-center p-4 text-center text-sm flex-col gap-4">
             <p className="text-muted-foreground">What role are you targeting?</p>

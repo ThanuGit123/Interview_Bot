@@ -8,7 +8,9 @@ export const useChatStore = create((set, get) => ({
   messages: [],
   isStreaming: false,
   status: null, // e.g. "Reading your resume…"
+  currentUser: null, // {name, email} — drives the user message avatar initial
 
+  setCurrentUser: (currentUser) => set({ currentUser }),
   setThreads: (threads) => set({ threads }),
   addThread: (thread) => set((s) => ({ threads: [thread, ...s.threads.filter((t) => t.id !== thread.id)] })),
   patchThread: (id, patch) =>
