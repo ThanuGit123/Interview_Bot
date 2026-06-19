@@ -35,10 +35,10 @@ export default function MessageBubble({ message, onPreview }) {
         {!(showReasoning && isStreamingEmpty) && (
         <div
           className={cn(
-            'rounded-2xl text-[15px] leading-[1.7]',
+            'rounded-[20px] text-[15px] leading-[1.7]',
             isUser
-              ? 'bg-primary px-4 py-2.5 text-primary-foreground'
-              : 'border border-border/70 bg-card px-4 py-3 shadow-sm'
+              ? 'bg-gradient-to-br from-primary/90 to-accent/90 px-5 py-3 text-primary-foreground shadow-soft'
+              : 'border border-border/50 bg-card px-5 py-4 shadow-soft'
           )}
         >
           {message.attachment && (

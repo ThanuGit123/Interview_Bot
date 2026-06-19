@@ -55,8 +55,71 @@ def extract_text(filename: str, content: bytes) -> str:
     )
 
 
+from fastapi import APIRouter, Depends, UploadFile, File, Response, BackgroundTasks
+
+async def _process_resume_background(resume_id: str, user_id: str, text: str):
+    from app.core.llm import get_llm
+    from langchain_core.messages import HumanMessage
+    import json_repair as json
+    from app.services.context_builder import SearchContextBuilder
+    from app.db.client import get_db
+
+    llm = get_llm()
+    prompt = f"""Extract interviewable technical skills, major projects, and the candidate's primary role from the following resume.
+
+Do NOT extract: NPTEL, Coursera, Udemy, Certifications, Workshop names, Course titles, College subjects, Soft skills.
+
+Output ONLY a JSON object with this exact structure:
+{{
+  "role": "Frontend Engineer" (or whatever fits best, default to "Software Engineer"),
+  "skills": [
+    {{"skill": "React", "confidence": 0.95}},
+    {{"skill": "Python", "confidence": 0.85}}
+  ],
+  "projects": [
+    "Deepfake Detection using CNN",
+    "E-commerce website with Next.js and Stripe"
+  ]
+}}
+DO NOT include any markdown formatting or extra text.
+
+Resume: {text[:15000]}"""
+    try:
+        response = await llm.ainvoke([HumanMessage(content=prompt)])
+        content = response.content.strip()
+        if content.startswith("```json"):
+            content = content[7:]
+        if content.startswith("```"):
+            content = content[3:]
+        if content.endswith("```"):
+            content = content[:-3]
+
+        extracted_data = json.loads(content.strip())
+        skills_array = extracted_data.get("skills", [])
+        sorted_skills = sorted(skills_array, key=lambda x: x.get('confidence', 0), reverse=True)
+        final_skills = sorted_skills[:12]
+        
+        projects = extracted_data.get("projects", [])
+        role = extracted_data.get("role", "Software Engineer")
+
+        builder = SearchContextBuilder()
+        skill_names = [s.get("skill") for s in final_skills]
+        search_context = await builder.build_context(skill_names, projects, role)
+
+        db = get_db()
+        db.resumes.update_one(
+            {"_id": resume_id, "user_id": user_id},
+            {"$set": {
+                "extracted_role": role,
+                "extracted_projects": projects,
+                "search_context": search_context
+            }}
+        )
+    except Exception as e:
+        logger.error("background_extraction_failed", error=str(e))
+
 @router.post("/")
-async def upload_resume(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+async def upload_resume(file: UploadFile = File(...), current_user: dict = Depends(get_current_user), background_tasks: BackgroundTasks = BackgroundTasks()):
     content = await file.read()
 
     if len(content) == 0:
@@ -86,7 +149,7 @@ async def upload_resume(file: UploadFile = File(...), current_user: dict = Depen
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
     logger.info("resume_uploaded", resume_id=resume_id, file_type=file_type, chars=len(text))
-
+    
     return {
         "resume_id": resume_id,
         "filename": file.filename,
@@ -124,33 +187,69 @@ async def get_resume_file(resume_id: str, current_user: dict = Depends(get_curre
     )
 
 
+@router.get("/{resume_id}/ats-report")
+async def get_ats_report(resume_id: str, role: str = None, current_user: dict = Depends(get_current_user)):
+    from app.services.ats_report import generate_ats_report
+    try:
+        report_data = await generate_ats_report(resume_id, current_user["_id"], role)
+        return report_data
+    except ValueError as e:
+        raise AppError(code="RESUME_ERROR", message=str(e), status_code=400)
+    except Exception as e:
+        logger.error("get_ats_report_error", error=str(e))
+        raise AppError(code="REPORT_GENERATION_FAILED", message="Failed to generate ATS report", status_code=500)
+
+
+@router.get("/{resume_id}/latex")
+async def get_latex_resume(resume_id: str, role: str = None, current_user: dict = Depends(get_current_user)):
+    from app.services.latex_generator import generate_latex_resume
+    try:
+        latex_code = await generate_latex_resume(resume_id, current_user["_id"], role)
+        return {"latex": latex_code}
+    except ValueError as e:
+        raise AppError(code="RESUME_ERROR", message=str(e), status_code=400)
+    except Exception as e:
+        logger.error("get_latex_resume_error", error=str(e))
+        raise AppError(code="REPORT_GENERATION_FAILED", message="Failed to generate LaTeX resume", status_code=500)
+
+
+
 @router.post("/extract-skills")
 async def extract_skills(req: dict, current_user: dict = Depends(get_current_user)):
     from app.core.llm import get_llm
     from langchain_core.messages import HumanMessage
     import json_repair as json
+    from app.services.context_builder import SearchContextBuilder
+    from app.db.client import get_db
 
     text = req.get("resumeText", "")
+    resume_id = req.get("resume_id")
+    if not resume_id:
+        raise AppError(code="MISSING_RESUME_ID", message="resume_id is required", status_code=400)
+
     llm = get_llm()
-    prompt = f"""Extract only interviewable technical skills from the following resume.
+    prompt = f"""Extract interviewable technical skills, major projects, and the candidate's primary role from the following resume.
 
-Valid Examples: Python, Java, C++, JavaScript, React, Next.js, Node.js, Spring Boot, MongoDB, MySQL, Docker, Kubernetes, AWS, Machine Learning, Deep Learning, CNN, NLP, Computer Vision.
+Do NOT extract: NPTEL, Coursera, Udemy, Certifications, Workshop names, Course titles, College subjects, Soft skills.
 
-Do NOT extract: NPTEL, Coursera, Udemy, Certifications, Workshop names, Course titles, College subjects, Soft skills, Project names.
-
-For every extracted skill provide a JSON object with 'skill' and 'confidence' (0.0 to 1.0).
-Output ONLY a raw JSON array of these objects, for example:
-[
-  {{"skill": "React", "confidence": 0.95}},
-  {{"skill": "Python", "confidence": 0.85}}
-]
+Output ONLY a JSON object with this exact structure:
+{{
+  "role": "Frontend Engineer" (or whatever fits best, default to "Software Engineer"),
+  "skills": [
+    {{"skill": "React", "confidence": 0.95}},
+    {{"skill": "Python", "confidence": 0.85}}
+  ],
+  "projects": [
+    "Deepfake Detection using CNN",
+    "E-commerce website with Next.js and Stripe"
+  ]
+}}
 DO NOT include any markdown formatting or extra text.
 
 Resume: {text[:15000]}"""
     try:
         response = llm.invoke([HumanMessage(content=prompt)])
 
-        # Strip markdown if present
         content = response.content.strip()
         if content.startswith("```json"):
             content = content[7:]
@@ -159,16 +258,35 @@ Resume: {text[:15000]}"""
         if content.endswith("```"):
             content = content[:-3]
 
-        skills_array = json.loads(content.strip())
+        extracted_data = json.loads(content.strip())
 
-        if not isinstance(skills_array, list):
-            raise ValueError("Expected a JSON array")
+        if not isinstance(extracted_data, dict) or "skills" not in extracted_data:
+            raise ValueError("Expected a JSON object with 'skills'")
 
-        # Sort by confidence descending and extract top 12 skill objects
+        skills_array = extracted_data.get("skills", [])
         sorted_skills = sorted(skills_array, key=lambda x: x.get('confidence', 0), reverse=True)
         final_skills = sorted_skills[:12]
+        
+        projects = extracted_data.get("projects", [])
+        role = extracted_data.get("role", "Software Engineer")
 
-        return {"skills": final_skills}
+        # Trigger Tavily Search Pipeline
+        builder = SearchContextBuilder()
+        skill_names = [s.get("skill") for s in final_skills]
+        search_context = await builder.build_context(skill_names, projects, role)
+
+        # Cache the context in the resume document
+        db = get_db()
+        db.resumes.update_one(
+            {"_id": resume_id, "user_id": current_user["_id"]},
+            {"$set": {
+                "extracted_role": role,
+                "extracted_projects": projects,
+                "search_context": search_context
+            }}
+        )
+
+        return {"skills": final_skills, "role": role, "projects": projects}
     except Exception as e:
-        logger.error("skill_extraction_failed", error=str(e))
+        logger.error("extraction_pipeline_failed", error=str(e))
         return {"skills": [{"skill": "React", "confidence": 0.9}, {"skill": "Node.js", "confidence": 0.85}, {"skill": "Python", "confidence": 0.8}]}

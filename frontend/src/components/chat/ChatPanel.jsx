@@ -147,14 +147,14 @@ export default function ChatPanel({ ensureThread }) {
                 <button
                   key={s.label}
                   onClick={() => sendText(s.text)}
-                  className="group flex items-start gap-3 rounded-xl border border-border bg-card px-4 py-3.5 text-left transition-all hover:border-primary/40 hover:bg-accent hover:shadow-sm"
+                  className="group flex items-start gap-4 rounded-2xl border border-border bg-card px-5 py-4 text-left shadow-sm transition-all duration-300 hover:border-primary/30 hover:bg-gradient-to-br hover:from-card hover:to-primary/5 hover:shadow-soft hover:-translate-y-0.5"
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary/20">
-                    <s.icon className="h-[18px] w-[18px]" />
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground shadow-sm">
+                    <s.icon className="h-[20px] w-[20px]" />
                   </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-medium text-foreground">{s.label}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{s.sub}</span>
+                  <span className="min-w-0 mt-0.5">
+                    <span className="block text-[15px] font-semibold text-foreground tracking-tight">{s.label}</span>
+                    <span className="block truncate text-[13px] text-muted-foreground mt-0.5">{s.sub}</span>
                   </span>
                 </button>
               ))}
