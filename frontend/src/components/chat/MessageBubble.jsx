@@ -2,10 +2,22 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Gauge, User, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import ReasoningCard from './ReasoningCard'
 
 export default function MessageBubble({ message, onPreview }) {
   const isUser = message.role === 'user'
-  const isStreamingEmpty = !isUser && message.id === '__streaming__' && !message.content
+  const isStreaming = !isUser && message.id === '__streaming__'
+  const isStreamingEmpty = isStreaming && !message.content
+  // The "Reasoning" card lives above the assistant content. Show it when there's
+  // real tool work (live or as a finished summary), or while we're still
+  // pre-first-token "thinking" on a streaming turn. Hide it on plain replies.
+  const act = message.activity
+  const showReasoning =
+    !isUser &&
+    act &&
+    ((act.tools?.length ?? 0) > 0 ||
+      (act.sources?.length ?? 0) > 0 ||
+      (isStreaming && !message.content))
 
   return (
     <div className={cn('flex animate-fade-in gap-3 px-4 py-2.5', isUser ? 'justify-end' : 'justify-start')}>
@@ -18,6 +30,9 @@ export default function MessageBubble({ message, onPreview }) {
       <div className={cn('flex min-w-0 max-w-[680px] flex-col', isUser ? 'items-end' : 'items-start')}>
         {!isUser && <span className="mb-1 pl-1 text-xs font-medium text-muted-foreground">Caliber</span>}
 
+        {showReasoning && <ReasoningCard activity={message.activity} streaming={isStreaming} />}
+
+        {!(showReasoning && isStreamingEmpty) && (
         <div
           className={cn(
             'rounded-2xl text-[15px] leading-[1.7]',
@@ -51,6 +66,7 @@ export default function MessageBubble({ message, onPreview }) {
             </div>
           )}
         </div>
+        )}
       </div>
 
       {isUser && (

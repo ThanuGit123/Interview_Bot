@@ -9,6 +9,10 @@ __pycache__/
 venv/
 .env
 
+# Runtime logs (mirrored each server start, see core/logging.py)
+logs.txt
+backend/logs.txt
+
 # OS
 .DS_Store
 Thumbs.db

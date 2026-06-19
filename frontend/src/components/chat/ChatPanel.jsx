@@ -20,6 +20,7 @@ export default function ChatPanel({ ensureThread }) {
   const {
     activeThreadId, messages, isStreaming, status,
     addMessage, setMessages, startAssistant, appendToken, setStatus, finishAssistant, failAssistant, patchThread,
+    addTool, patchTool, addSource,
   } = useChatStore()
   const viewportRef = useRef(null)
   const reconnectedRef = useRef(false)
@@ -55,6 +56,9 @@ export default function ChatPanel({ ensureThread }) {
     },
     onToken: (delta) => appendToken(delta),
     onStatus: (d) => setStatus(d?.message || null),
+    onToolCall: (d) => addTool(d),
+    onToolResult: (d) => patchTool(d),
+    onSource: (d) => addSource(d),
     onComplete: (d) => finishAssistant(d),
     onTitle: (d) => {
       if (activeThreadId && d?.title) patchThread(activeThreadId, { title: d.title })
@@ -162,7 +166,7 @@ export default function ChatPanel({ ensureThread }) {
               {messages.map((m) => (
                 <MessageBubble key={m.id} message={m} onPreview={setPreviewResume} />
               ))}
-              {status && (
+              {status && !isStreaming && (
                 <div className="px-4 py-1 pl-14 text-xs text-muted-foreground">
                   <span className="animate-pulse">{status}</span>
                 </div>
