@@ -20,6 +20,7 @@ export default function ChatPanel({ ensureThread }) {
   const {
     activeThreadId, messages, isStreaming, status,
     addMessage, setMessages, startAssistant, appendToken, setStatus, finishAssistant, failAssistant, patchThread,
+    addTool, patchTool, addSource,
   } = useChatStore()
   const viewportRef = useRef(null)
   const reconnectedRef = useRef(false)
@@ -55,6 +56,9 @@ export default function ChatPanel({ ensureThread }) {
     },
     onToken: (delta) => appendToken(delta),
     onStatus: (d) => setStatus(d?.message || null),
+    onToolCall: (d) => addTool(d),
+    onToolResult: (d) => patchTool(d),
+    onSource: (d) => addSource(d),
     onComplete: (d) => finishAssistant(d),
     onTitle: (d) => {
       if (activeThreadId && d?.title) patchThread(activeThreadId, { title: d.title })
@@ -127,7 +131,7 @@ export default function ChatPanel({ ensureThread }) {
   const isEmpty = messages.length === 0
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1">
+    <div className="relative flex min-h-0 min-w-0 flex-1">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {isEmpty ? (
           <div className="flex flex-1 flex-col items-center justify-center px-6">
@@ -162,7 +166,7 @@ export default function ChatPanel({ ensureThread }) {
               {messages.map((m) => (
                 <MessageBubble key={m.id} message={m} onPreview={setPreviewResume} />
               ))}
-              {status && (
+              {status && !isStreaming && (
                 <div className="px-4 py-1 pl-14 text-xs text-muted-foreground">
                   <span className="animate-pulse">{status}</span>
                 </div>

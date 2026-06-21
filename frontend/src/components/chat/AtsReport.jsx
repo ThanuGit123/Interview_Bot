@@ -1,238 +1,299 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Download, CheckCircle, AlertTriangle, Lightbulb, FileText, X, Loader2 } from 'lucide-react';
-import html2pdf from 'html2pdf.js';
+import { useState } from 'react'
+import { motion } from 'framer-motion'
+import { Download, CheckCircle, AlertTriangle, Lightbulb, FileText, X, Loader2, GitBranch, Star, RefreshCw } from 'lucide-react'
+import html2pdf from 'html2pdf.js'
+import { cn } from '@/lib/utils'
+import { notifyError } from '@/lib/notify'
 
-const CircularProgress = ({ value, label, status }) => {
-  const radius = 35;
-  const circumference = 2 * Math.PI * radius;
-  
-  if (value === null || status === "Not Evaluated") {
-    return (
-      <div style={{ background: '#1e2330', padding: '1.5rem 1rem', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <div style={{ position: 'relative', width: '80px', height: '80px', marginBottom: '1rem' }}>
-          <svg width="80" height="80" style={{ transform: 'rotate(-90deg)' }}>
-            <circle cx="40" cy="40" r={radius} fill="none" stroke="#2a303c" strokeWidth="6" />
-          </svg>
-          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1rem', color: '#6b7280' }}>
-            N/A
-          </div>
-        </div>
-        <div style={{ color: '#6b7280', fontWeight: 'bold', fontSize: '0.85rem', marginBottom: '0.5rem', textAlign: 'center', minHeight: '34px' }}>{label}</div>
-      </div>
-    );
-  }
-
-  const strokeDashoffset = circumference - (value / 100) * circumference;
-
-  let color = '#3b82f6';
-  let subLabel = 'AVERAGE';
-  if (value >= 80) { color = '#10b981'; subLabel = 'STRONG'; }
-  else if (value <= 60) { color = '#ef4444'; subLabel = 'WEAK'; }
-
+// ── Score ring ───────────────────────────────────────────────────────────────
+function ScoreRing({ value }) {
+  const v = Math.max(0, Math.min(100, Number(value) || 0))
+  const r = 42
+  const c = 2 * Math.PI * r
+  const offset = c - (v / 100) * c
+  const tone = v >= 80 ? '#10b981' : v <= 60 ? '#ef4444' : '#f59e0b'
+  const label = v >= 80 ? 'Strong' : v <= 60 ? 'Needs work' : 'Average'
   return (
-    <div style={{ background: '#1e2330', padding: '1.5rem 1rem', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div style={{ position: 'relative', width: '80px', height: '80px', marginBottom: '1rem' }}>
-        <svg width="80" height="80" style={{ transform: 'rotate(-90deg)' }}>
-          <circle cx="40" cy="40" r={radius} fill="none" stroke="#2a303c" strokeWidth="6" />
-          <circle 
-            cx="40" cy="40" r={radius} fill="none" stroke={color} strokeWidth="6"
-            strokeDasharray={circumference} strokeDashoffset={strokeDashoffset}
-            strokeLinecap="round" style={{ transition: 'stroke-dashoffset 1s ease-in-out' }}
-          />
+    <div className="relative flex flex-col items-center justify-center overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-card to-background p-6 shadow-sm">
+      <div className="pointer-events-none absolute -top-10 h-36 w-36 rounded-full blur-3xl" style={{ background: `${tone}40` }} />
+      <div className="relative h-28 w-28">
+        <svg width="112" height="112" className="-rotate-90">
+          <circle cx="56" cy="56" r={r} fill="none" stroke="hsl(var(--muted))" strokeWidth="8" />
+          <circle cx="56" cy="56" r={r} fill="none" stroke={tone} strokeWidth="8"
+            strokeDasharray={c} strokeDashoffset={offset} strokeLinecap="round"
+            style={{ transition: 'stroke-dashoffset 1s ease', filter: `drop-shadow(0 0 6px ${tone}80)` }} />
         </svg>
-        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1.2rem', color: '#fff' }}>
-          {value}%
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-3xl font-bold leading-none text-foreground">{v}</span>
+          <span className="text-[10px] text-muted-foreground">/ 100</span>
         </div>
       </div>
-      <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.5rem', textAlign: 'center', minHeight: '34px' }}>{label}</div>
-      <div style={{ background: '#2a303c', color: color, fontSize: '0.6rem', padding: '0.2rem 0.6rem', borderRadius: '12px', fontWeight: 'bold', textTransform: 'uppercase' }}>{subLabel}</div>
+      <div className="mt-3 text-xs font-medium text-muted-foreground">Overall ATS Score</div>
+      <span className="mt-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+        style={{ color: tone, background: `${tone}1a` }}>{label}</span>
     </div>
-  );
-};
+  )
+}
 
-export default function AtsReport({ reportData, resumeId }) {
-  const [isDownloading, setIsDownloading] = useState(false);
+function Card({ title, icon, children, className }) {
+  return (
+    <div className={cn('rounded-2xl border border-border bg-card p-5 shadow-sm', className)}>
+      {title && (
+        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">{icon}{title}</h3>
+      )}
+      {children}
+    </div>
+  )
+}
 
-  if (!reportData) return null;
+function StatChip({ label, value }) {
+  if (value === null || value === undefined) return null
+  return (
+    <div className="rounded-lg bg-secondary/60 px-3 py-1.5 text-center">
+      <div className="text-sm font-bold text-foreground">{value}</div>
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+    </div>
+  )
+}
+
+function ReviewList({ title, tone, items }) {
+  if (!items || items.length === 0) return null
+  return (
+    <div>
+      <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: tone }}>{title}</div>
+      <ul className="ml-4 list-disc space-y-1 text-[13px] leading-relaxed text-muted-foreground">
+        {items.map((it, i) => <li key={i}>{it}</li>)}
+      </ul>
+    </div>
+  )
+}
+
+export default function AtsReport({ reportData, resumeId, onRegenerate }) {
+  const [isDownloading, setIsDownloading] = useState(false)
+  const [overleafLoading, setOverleafLoading] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
+
+  if (!reportData) return null
+
+  const handleRegenerate = async () => {
+    if (!onRegenerate) return
+    setRegenerating(true)
+    try { await onRegenerate() } finally { setRegenerating(false) }
+  }
 
   const {
     atsScore = 0,
     missingKeywords = [],
     resumeWeaknesses = [],
     improvedBullets = [],
-    recommendations = []
-  } = reportData;
+    recommendations = [],
+    role = null,
+    developerProfile = null,
+  } = reportData
+  const gh = developerProfile?.github
+  const ghReview = developerProfile?.review
 
   const handleDownload = () => {
-    setIsDownloading(true);
-    const element = document.getElementById('ats-report-content');
-    
-    // Temporarily hide the download button from the PDF
-    const downloadBtn = document.getElementById('download-btn-container');
-    if (downloadBtn) downloadBtn.style.display = 'none';
-
+    setIsDownloading(true)
+    const element = document.getElementById('ats-report-content')
+    const btns = document.getElementById('ats-report-actions')
+    if (btns) btns.style.visibility = 'hidden'
     const opt = {
-      margin: 1,
-      filename: `ATS_Analysis_Report.pdf`,
+      margin: 0.4,
+      filename: 'ATS_Analysis_Report.pdf',
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-    };
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#0b0f17' },
+      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
+    }
+    html2pdf().set(opt).from(element).save()
+      .then(() => { if (btns) btns.style.visibility = 'visible'; setIsDownloading(false) })
+      .catch((err) => {
+        console.error('ats_pdf_export_failed', err)
+        if (btns) btns.style.visibility = 'visible'
+        setIsDownloading(false)
+        notifyError({ message: 'Could not generate the PDF. Please try again.' })
+      })
+  }
 
-    html2pdf().set(opt).from(element).save().then(() => {
-      if (downloadBtn) downloadBtn.style.display = 'flex';
-      setIsDownloading(false);
-    });
-  };
+  const handleOverleaf = async () => {
+    setOverleafLoading(true)
+    try {
+      const { getLatexResume } = await import('@/lib/services/api')
+      const response = await getLatexResume(resumeId)
+      const latex = response?.latex
+      if (!latex || !latex.includes('\\documentclass')) {
+        notifyError({ message: 'The generated LaTeX looks incomplete. Please try again.' })
+        return
+      }
+      const form = document.createElement('form')
+      form.action = 'https://www.overleaf.com/docs'
+      form.method = 'POST'
+      form.target = '_blank'
+      const input = document.createElement('input')
+      input.type = 'hidden'
+      input.name = 'snip'
+      input.value = latex
+      form.appendChild(input)
+      document.body.appendChild(form)
+      form.submit()
+      document.body.removeChild(form)
+    } catch (err) {
+      console.error('latex_generation_failed', err)
+      notifyError({ message: 'Failed to generate LaTeX resume.' })
+    } finally {
+      setOverleafLoading(false)
+    }
+  }
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="flex-1 w-full h-full overflow-y-auto custom-scrollbar"
-      style={{ backgroundColor: '#111827' }}
-    >
-      <div id="ats-report-content" style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}>
-        
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', borderBottom: '1px solid #2a303c', paddingBottom: '1.5rem' }}>
-          <div>
-            <h1 style={{ color: '#fff', fontSize: '1.8rem', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <FileText color="#3b82f6" /> ATS Analysis Report
-            </h1>
-            <p style={{ color: '#9ca3af', fontSize: '0.9rem', margin: 0 }}>AI-driven resume optimization and keyword extraction.</p>
-          </div>
-          
-          <div id="download-btn-container" style={{ display: 'flex', gap: '0.5rem' }}>
-            <button 
-              onClick={handleDownload}
-              disabled={isDownloading}
-              style={{ background: '#374151', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: isDownloading ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '0.9rem', opacity: isDownloading ? 0.7 : 1 }}
-            >
-              {isDownloading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-              {isDownloading ? "Saving..." : "Save Report"}
-            </button>
-            <button 
-              onClick={async () => {
-                const btn = document.getElementById('overleaf-btn-text');
-                const spinner = document.getElementById('overleaf-btn-spinner');
-                if (btn) btn.innerText = "Generating (takes ~30s)...";
-                if (spinner) spinner.style.display = 'block';
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+      className="h-full w-full overflow-y-auto bg-background text-foreground">
+      <div id="ats-report-content" className="mx-auto w-full max-w-3xl p-5 sm:p-6">
 
-                try {
-                  const { getLatexResume } = await import('@/lib/services/api');
-                  const response = await getLatexResume(resumeId);
-                  if (response.latex) {
-                    const form = document.createElement('form');
-                    form.action = 'https://www.overleaf.com/docs';
-                    form.method = 'POST';
-                    form.target = '_blank'; // Open in a new tab
-                    const input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = 'snip';
-                    input.value = response.latex;
-                    form.appendChild(input);
-                    document.body.appendChild(form);
-                    form.submit();
-                    document.body.removeChild(form);
-                  }
-                } catch (err) {
-                  console.error("Failed to generate Latex", err);
-                  alert("Failed to generate LaTeX resume.");
-                } finally {
-                  if (btn) btn.innerText = "Generate Resume (Overleaf)";
-                  if (spinner) spinner.style.display = 'none';
-                }
-              }}
-              style={{ background: '#47a141', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: '600', fontSize: '0.9rem' }}
-            >
-              <Loader2 id="overleaf-btn-spinner" size={16} className="animate-spin" style={{ display: 'none' }} />
-              <FileText size={16} />
-              <span id="overleaf-btn-text">Generate Resume (Overleaf)</span>
+        {/* Header */}
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4">
+          <div>
+            <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
+              <FileText className="h-5 w-5 text-primary" /> ATS Analysis Report
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              AI resume optimization{role ? <> · <span className="text-foreground/80">{role}</span></> : ''}
+            </p>
+          </div>
+          <div id="ats-report-actions" className="flex gap-2">
+            {onRegenerate && (
+              <button onClick={handleRegenerate} disabled={regenerating} title="Re-run a fresh analysis"
+                className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-60">
+                <RefreshCw className={cn('h-4 w-4', regenerating && 'animate-spin')} />
+                <span className="hidden sm:inline">{regenerating ? 'Refreshing…' : 'Regenerate'}</span>
+              </button>
+            )}
+            <button onClick={handleDownload} disabled={isDownloading}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-60">
+              {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {isDownloading ? 'Saving…' : 'Save PDF'}
+            </button>
+            <button onClick={handleOverleaf} disabled={overleafLoading}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60">
+              {overleafLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+              {overleafLoading ? 'Generating…' : 'Generate Resume'}
             </button>
           </div>
         </div>
 
-        {/* Top Section: Score & Keywords */}
-        <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
-          <CircularProgress value={atsScore} label="Overall ATS Score" status="Evaluated" />
-          
-          <div style={{ background: '#1e2330', padding: '1.5rem', borderRadius: '12px' }}>
-            <h3 style={{ color: '#fff', fontSize: '1rem', margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <AlertTriangle size={18} color="#f59e0b" /> Missing Critical Keywords
-            </h3>
+        {/* Score + Missing keywords */}
+        <div className="mb-4 grid gap-4 md:grid-cols-[180px_1fr]">
+          <ScoreRing value={atsScore} />
+          <Card title="Missing Critical Keywords" icon={<AlertTriangle className="h-4 w-4 text-amber-500" />}>
             {missingKeywords.length > 0 ? (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div className="flex flex-wrap gap-2">
                 {missingKeywords.map((kw, i) => (
-                  <span key={i} style={{ background: '#451a1a', color: '#fca5a5', fontSize: '0.8rem', padding: '0.3rem 0.6rem', borderRadius: '4px', border: '1px solid #7f1d1d' }}>
-                    {kw}
-                  </span>
+                  <span key={i} className="rounded-md border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-xs text-destructive">{kw}</span>
                 ))}
               </div>
             ) : (
-              <p style={{ color: '#9ca3af', fontSize: '0.9rem', margin: 0 }}>Your resume matches all critical industry keywords. Great job!</p>
+              <p className="text-sm text-muted-foreground">Your resume matches the critical keywords for this role.</p>
             )}
-          </div>
+          </Card>
         </div>
 
-        {/* Weaknesses & Recommendations */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
-          <div style={{ background: '#1e2330', padding: '1.5rem', borderRadius: '12px' }}>
-            <h3 style={{ color: '#fff', fontSize: '1rem', margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <X size={18} color="#ef4444" /> Resume Weaknesses
-            </h3>
-            <ul style={{ margin: 0, paddingLeft: '1.2rem', color: '#d1d5db', fontSize: '0.9rem', lineHeight: '1.6' }}>
-              {resumeWeaknesses.map((w, i) => (
-                <li key={i} style={{ marginBottom: '0.5rem' }}>{w}</li>
-              ))}
+        {/* Weaknesses + Recommendations */}
+        <div className="mb-4 grid gap-4 md:grid-cols-2">
+          <Card title="Resume Weaknesses" icon={<X className="h-4 w-4 text-red-500" />} className="border-l-2 border-l-red-500/50">
+            <ul className="ml-4 list-disc space-y-1.5 text-[13px] leading-relaxed text-muted-foreground">
+              {resumeWeaknesses.map((w, i) => <li key={i}>{w}</li>)}
+              {resumeWeaknesses.length === 0 && <li className="list-none text-muted-foreground/70">None flagged.</li>}
             </ul>
-          </div>
-          
-          <div style={{ background: '#1e2330', padding: '1.5rem', borderRadius: '12px' }}>
-            <h3 style={{ color: '#fff', fontSize: '1rem', margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Lightbulb size={18} color="#10b981" /> Actionable Recommendations
-            </h3>
-            <ul style={{ margin: 0, paddingLeft: '1.2rem', color: '#d1d5db', fontSize: '0.9rem', lineHeight: '1.6' }}>
-              {recommendations.map((r, i) => (
-                <li key={i} style={{ marginBottom: '0.5rem' }}>{r}</li>
-              ))}
+          </Card>
+          <Card title="Actionable Recommendations" icon={<Lightbulb className="h-4 w-4 text-emerald-500" />} className="border-l-2 border-l-emerald-500/50">
+            <ul className="ml-4 list-disc space-y-1.5 text-[13px] leading-relaxed text-muted-foreground">
+              {recommendations.map((r, i) => <li key={i}>{r}</li>)}
+              {recommendations.length === 0 && <li className="list-none text-muted-foreground/70">None.</li>}
             </ul>
-          </div>
+          </Card>
         </div>
 
-        {/* Improved Bullet Points */}
-        <div style={{ background: '#1e2330', padding: '1.5rem', borderRadius: '12px' }}>
-          <h3 style={{ color: '#fff', fontSize: '1.1rem', margin: '0 0 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <CheckCircle size={20} color="#3b82f6" /> AI-Improved Bullet Points
-          </h3>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {improvedBullets.map((bullet, i) => (
-              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', paddingBottom: '1.5rem', borderBottom: i !== improvedBullets.length - 1 ? '1px solid #2a303c' : 'none' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div style={{ background: '#111827', padding: '1rem', borderRadius: '8px', borderLeft: '3px solid #ef4444' }}>
-                    <div style={{ color: '#ef4444', fontSize: '0.7rem', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Original</div>
-                    <div style={{ color: '#9ca3af', fontSize: '0.85rem', lineHeight: '1.5' }}>{bullet.original}</div>
+        {/* Improved bullets */}
+        <Card title="AI-Improved Bullet Points" icon={<CheckCircle className="h-4 w-4 text-primary" />} className="mb-4">
+          <div className="flex flex-col gap-4">
+            {improvedBullets.map((b, i) => (
+              <div key={i} className={cn('flex flex-col gap-2', i !== improvedBullets.length - 1 && 'border-b border-border/60 pb-4')}>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-lg border-l-2 border-red-500 bg-background/60 p-3">
+                    <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-red-500">Original</div>
+                    <div className="text-[13px] leading-relaxed text-muted-foreground">{b.original}</div>
                   </div>
-                  <div style={{ background: '#064e3b20', padding: '1rem', borderRadius: '8px', borderLeft: '3px solid #10b981' }}>
-                    <div style={{ color: '#10b981', fontSize: '0.7rem', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Improved</div>
-                    <div style={{ color: '#d1d5db', fontSize: '0.85rem', lineHeight: '1.5' }}>{bullet.improved}</div>
+                  <div className="rounded-lg border-l-2 border-emerald-500 bg-emerald-500/5 p-3">
+                    <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-emerald-500">Improved</div>
+                    <div className="text-[13px] leading-relaxed text-foreground/90">{b.improved}</div>
                   </div>
                 </div>
-                <div style={{ color: '#60a5fa', fontSize: '0.8rem', background: '#1e3a8a20', padding: '0.8rem 1rem', borderRadius: '6px', display: 'flex', gap: '0.5rem' }}>
-                  <span style={{ fontWeight: 'bold' }}>Reasoning:</span> {bullet.reason}
-                </div>
+                {b.reason && (
+                  <div className="rounded-md bg-primary/5 px-3 py-2 text-xs text-primary">
+                    <span className="font-semibold">Why: </span>{b.reason}
+                  </div>
+                )}
               </div>
             ))}
-            
             {improvedBullets.length === 0 && (
-              <p style={{ color: '#9ca3af', fontSize: '0.9rem', textAlign: 'center', margin: '1rem 0' }}>No bullet point improvements generated for this resume.</p>
+              <p className="py-2 text-center text-sm text-muted-foreground">No bullet improvements generated.</p>
             )}
           </div>
-        </div>
+        </Card>
+
+        {/* Developer Profile Review (GitHub) */}
+        {gh && (
+          <Card className="mb-2">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
+              <GitBranch className="h-4 w-4 text-violet-400" /> Developer Profile Review
+              {gh.profile_url && (
+                <a href={gh.profile_url} target="_blank" rel="noopener noreferrer"
+                  className="ml-auto text-xs text-primary hover:underline">@{gh.username}</a>
+              )}
+            </h3>
+
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <StatChip label="Repos" value={gh.owned_repos} />
+              <StatChip label="Stars" value={gh.total_stars} />
+              {typeof gh.current_streak === 'number' && <StatChip label="Streak" value={`${gh.current_streak}d`} />}
+              {typeof gh.total_contributions_last_year === 'number' && <StatChip label="Contribs/yr" value={gh.total_contributions_last_year} />}
+              <StatChip label="Followers" value={gh.followers} />
+              <span className={cn('rounded-full px-3 py-1 text-xs font-bold',
+                gh.active ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400')}>
+                {gh.active ? 'Active' : 'Inactive'}{typeof gh.days_since_active === 'number' ? ` · ${gh.days_since_active}d since push` : ''}
+              </span>
+            </div>
+
+            {ghReview?.summary && <p className="mb-3 text-[13px] leading-relaxed text-muted-foreground">{ghReview.summary}</p>}
+
+            {gh.top_repos?.length > 0 && (
+              <div className="mb-4">
+                <div className="mb-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">Top Repositories</div>
+                <div className="flex flex-col gap-1.5">
+                  {gh.top_repos.map((r, i) => (
+                    <a key={i} href={r.url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center justify-between rounded-md bg-background/60 px-3 py-2 transition-colors hover:bg-accent">
+                      <span className="text-[13px] text-foreground/90">{r.name}{r.language && <span className="text-muted-foreground"> · {r.language}</span>}</span>
+                      <span className="flex items-center gap-1 text-xs text-amber-400"><Star className="h-3 w-3" /> {r.stars}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <ReviewList title="Strengths" tone="#10b981" items={ghReview?.strengths} />
+              <ReviewList title="Concerns" tone="#ef4444" items={ghReview?.concerns} />
+            </div>
+            {ghReview?.focusAreas?.length > 0 && (
+              <div className="mt-4">
+                <ReviewList title="Focus Areas (what recruiters want to see)" tone="#60a5fa" items={ghReview.focusAreas} />
+              </div>
+            )}
+          </Card>
+        )}
 
       </div>
     </motion.div>
-  );
+  )
 }
