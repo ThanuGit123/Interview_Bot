@@ -188,7 +188,7 @@ export default function AtsReport({ reportData, resumeId, onRegenerate }) {
             {missingKeywords.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {missingKeywords.map((kw, i) => (
-                  <span key={i} className="rounded-md border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-xs text-destructive">{kw}</span>
+                  <span key={i} className="rounded-md border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-xs text-red-400">{kw}</span>
                 ))}
               </div>
             ) : (

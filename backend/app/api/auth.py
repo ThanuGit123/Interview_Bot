@@ -5,7 +5,7 @@ import hashlib
 import secrets
 import structlog
 from datetime import datetime, timezone, timedelta
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Body
 from app.models.user import UserCreate, UserLogin, UserResponse, TokenResponse
 from app.core.security import get_password_hash, verify_password, create_access_token, get_current_user
 from app.core.errors import AppError
@@ -16,7 +16,6 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 RESET_TOKEN_TTL_MIN = int(os.environ.get("RESET_TOKEN_TTL_MIN", "30"))
-
 
 def _hash_token(t: str) -> str:
     return hashlib.sha256(t.encode()).hexdigest()
@@ -150,6 +149,56 @@ def reset_password(payload: dict):
     )
     logger.info("password_reset_complete", user_id=user["_id"])
     return {"ok": True, "message": "Password updated — you can now log in."}
+
+@router.put("/profile", response_model=UserResponse)
+def update_profile(profile_data: dict = Body(...), current_user: dict = Depends(get_current_user)):
+    from app.db.repositories import update_user_profile
+    db = get_db()
+    
+    # Update the user's profile
+    update_user_profile(current_user["_id"], profile_data)
+    
+    # Return the updated user
+    updated_user = db.users.find_one({"_id": current_user["_id"]})
+    return updated_user
+
+@router.get("/dashboard")
+def get_dashboard(current_user: dict = Depends(get_current_user)):
+    db = get_db()
+    user_id = current_user["_id"]
+    profile = current_user.get("profile", {})
+    
+    # 1. Fetch recent ATS scores
+    recent_resumes = list(db.resumes.find(
+        {"user_id": user_id, "ats_report": {"$exists": True, "$ne": None}},
+        {"ats_report": 1, "created_at": 1}
+    ).sort("created_at", -1).limit(5))
+    
+    recent_scores = []
+    for r in reversed(recent_resumes):  # Chronological order
+        score = r["ats_report"].get("atsScore", 0)
+        date = r["created_at"][:10]  # YYYY-MM-DD
+        recent_scores.append({"date": date, "score": score})
+        
+    latest_score = recent_scores[-1]["score"] if recent_scores else None
+    
+    # 2. Fetch weak topics from last mock interview
+    weak_topics = []
+    past_grades = list(db.round_grades.find(
+        {"user_id": user_id, "grade": {"$in": ["wrong", "partial"]}}
+    ).sort("created_at", -1).limit(3))
+    
+    if past_grades:
+        weak_topics = list(set([g.get("round_type", "technical") for g in past_grades]))
+        
+    return {
+        "name": current_user.get("name"),
+        "target_role": profile.get("target_role"),
+        "target_company": profile.get("target_company"),
+        "recent_scores": recent_scores,
+        "latest_score": latest_score,
+        "weak_topics": weak_topics
+    }
 
 @router.get("/crash")
 def force_crash():
