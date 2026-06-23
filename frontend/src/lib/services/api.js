@@ -52,6 +52,8 @@ async function request(path, { method = 'GET', body, isForm } = {}) {
 
 // ---- Auth ----
 export const me = () => request('/auth/me')
+export const updateProfile = (profile) => request('/auth/profile', { method: 'PUT', body: profile })
+export const getDashboard = () => request('/auth/dashboard')
 export const forgotPassword = (email) => request('/auth/forgot-password', { method: 'POST', body: { email } })
 export const resetPassword = (token, password) => request('/auth/reset-password', { method: 'POST', body: { token, password } })
 

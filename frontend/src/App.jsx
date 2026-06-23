@@ -5,6 +5,7 @@ import LandingPage from './components/LandingPage'
 import Sidebar from './components/chat/Sidebar'
 import ChatPanel from './components/chat/ChatPanel'
 import TopBar from './components/chat/TopBar'
+import ProfileModal from './components/chat/ProfileModal'
 import { Toaster } from './components/ui/sonner'
 import { useChatStore } from './store/chatStore'
 import * as api from './lib/services/api'
@@ -164,6 +165,8 @@ export default function App() {
     setView('auth')
   }
 
+  const [profileOpen, setProfileOpen] = useState(false)
+
   if (booting) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground">
@@ -185,9 +188,15 @@ export default function App() {
         onDelete={handleDelete}
       />
       <main className="flex min-w-0 flex-1 flex-col">
-        <TopBar onLogout={logout} user={user} />
+        <TopBar onLogout={logout} user={user} onUserUpdated={setCurrentUser} onOpenProfile={() => setProfileOpen(true)} />
         <ChatPanel ensureThread={ensureThread} />
       </main>
+      <ProfileModal 
+        open={profileOpen} 
+        onOpenChange={setProfileOpen} 
+        user={user} 
+        onUserUpdated={setCurrentUser} 
+      />
       <Toaster position="top-right" richColors />
     </div>
   )

@@ -87,3 +87,17 @@ def count_messages(thread_id: str, user_id: str):
 # ---------- resumes ----------
 def get_resume(user_id: str, resume_id: str):
     return get_db().resumes.find_one({"_id": resume_id, "user_id": user_id})
+
+# ---------- users ----------
+def update_user_profile(user_id: str, profile_data: dict):
+    return get_db().users.update_one(
+        {"_id": user_id},
+        {"$set": {"profile": profile_data, "updated_at": _now()}}
+    )
+
+def get_user_recent_history(user_id: str):
+    """Fetch the latest 3 threads to analyze recent performance."""
+    threads = list(get_db().threads.find(
+        {"user_id": user_id, "deleted_at": None, "status": "completed"}
+    ).sort("updated_at", -1).limit(3))
+    return threads

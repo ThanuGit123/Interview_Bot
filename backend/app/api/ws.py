@@ -135,6 +135,26 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str, token: str = 
             all_msgs = repo.list_messages(thread_id, user_id)
             history_msgs = all_msgs[:-1] if all_msgs else []
 
+            # Fetch user profile for personalization
+            user = repo.get_db().users.find_one({"_id": user_id})
+            user_name = user.get("name", "Candidate") if user else "Candidate"
+            profile = user.get("profile", {}) if user else {}
+            
+            role_str = f"\nTarget Role: {profile.get('target_role')}" if profile.get("target_role") else ""
+            company_str = f"\nTarget Company: {profile.get('target_company')}" if profile.get("target_company") else ""
+            persona_str = f"\nPreferred Persona: {profile.get('preferred_persona')}" if profile.get("preferred_persona") and profile.get("preferred_persona") != "default" else ""
+            yoe_str = f"\nYears of Experience: {profile.get('years_of_experience')}" if profile.get("years_of_experience") else ""
+            
+            from app.services.personalization import get_user_coaching_context
+            coaching_context = get_user_coaching_context(user_id)
+            
+            user_profile_context = (
+                f"--- USER PROFILE ---\n"
+                f"Name: {user_name}{role_str}{company_str}{persona_str}{yoe_str}\n"
+                f"{coaching_context}\n"
+                f"--------------------"
+            )
+
             resume = repo.get_resume(user_id, thread_fresh["resume_id"]) if thread_fresh.get("resume_id") else None
 
             if resume:
@@ -167,6 +187,7 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str, token: str = 
                 messages=history_msgs,
                 dynamic_context=dynamic_context,
                 current_answer=text,
+                user_profile_context=user_profile_context,
             )
 
             state = {"messages": messages, "thread_id": thread_id, "user_id": user_id}

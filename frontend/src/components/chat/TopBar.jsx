@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Sun, Moon, LogOut, Sparkles, Copy, Check } from 'lucide-react'
+import { Sun, Moon, LogOut, Sparkles, Copy, Check, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -13,9 +13,10 @@ import {
 import { useChatStore } from '@/store/chatStore'
 import { getTheme, applyTheme } from '@/lib/theme'
 
-export default function TopBar({ onLogout, user }) {
+export default function TopBar({ onLogout, user, onUserUpdated, onOpenProfile }) {
   const { threads, activeThreadId, messages } = useChatStore()
   const active = threads.find((t) => t.id === activeThreadId)
+  const isReturningUser = threads.length > 1;
   const [theme, setTheme] = useState(getTheme())
   const [copiedChat, setCopiedChat] = useState(false)
   const name = user?.name || 'Account'
@@ -60,12 +61,25 @@ export default function TopBar({ onLogout, user }) {
           <h2 className="truncate text-sm font-semibold leading-tight text-foreground">
             {active?.title || 'New chat'}
           </h2>
-          <p className="text-[11px] leading-tight text-muted-foreground">AI interview & resume coach</p>
+          <div className="flex items-center gap-2">
+            <p className="text-[11px] leading-tight text-muted-foreground">AI interview & resume coach</p>
+            {isReturningUser && (
+              <span className="flex items-center gap-1 text-[9px] text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-500/10 px-1.5 py-[1px] rounded-full border border-emerald-500/20" title="Caliber remembers your past mock interviews and resume feedback!">
+                <Sparkles className="h-2.5 w-2.5" /> Memory Active
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Right: actions */}
       <div className="flex items-center gap-0.5">
+        {user?.name && (
+          <span className="text-sm text-muted-foreground mr-4 hidden sm:inline-block">
+            Welcome back, <span className="font-medium text-foreground">{user.name}</span>!
+          </span>
+        )}
+
         <Button
           variant="ghost"
           size="icon"
@@ -104,8 +118,11 @@ export default function TopBar({ onLogout, user }) {
               {email && <span className="truncate text-xs font-normal text-muted-foreground">{email}</span>}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onOpenProfile}>
+              <User className="h-4 w-4 mr-2" /> My Profile
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={onLogout}>
-              <LogOut className="h-4 w-4" /> Logout
+              <LogOut className="h-4 w-4 mr-2" /> Logout
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

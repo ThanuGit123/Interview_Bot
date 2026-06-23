@@ -1,6 +1,6 @@
 .landing-page {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: var(--background);
+  font-family: 'Playfair Display', serif;
+  background-color: transparent;
   color: var(--foreground);
   min-height: 100vh;
   display: flex;
@@ -22,7 +22,7 @@
   gap: 0.75rem;
   font-size: 1.5rem;
   font-weight: 800;
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: 'Playfair Display', serif;
   letter-spacing: -0.02em;
   background: linear-gradient(to right, var(--primary), var(--accent));
   -webkit-background-clip: text;
@@ -111,7 +111,8 @@
 }
 
 .lp-title {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
   font-size: 4.5rem;
   line-height: 1.1;
   font-weight: 800;
@@ -172,7 +173,7 @@
   font-weight: 800;
   color: var(--foreground);
   margin: 0 0 0.25rem 0;
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: 'Playfair Display', serif;
 }
 
 .lp-stat-item p {
@@ -231,7 +232,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: 'Playfair Display', serif;
 }
 
 /* CTA Section */
@@ -253,7 +254,8 @@
 }
 
 .lp-cta-title {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
   font-size: 3rem;
   font-weight: 800;
   color: var(--foreground);
@@ -370,19 +372,81 @@
   color: var(--muted-foreground);
 }
 
-/* ── Hero glow (depth) ─────────────────────────────────────────────── */
-.lp-hero { position: relative; overflow: hidden; }
-.lp-hero::before {
-  content: '';
-  position: absolute;
-  top: -25%;
-  right: -10%;
-  width: 65%;
-  height: 130%;
-  background: radial-gradient(circle, rgba(16, 185, 129, 0.13), transparent 60%);
+/* ── Custom Dynamic Mouse Pointer ── */
+.landing-page {
+  cursor: none; /* Hide default cursor */
+}
+
+.landing-page a, 
+.landing-page button {
+  cursor: none !important; /* Ensure buttons also use custom cursor */
+}
+
+.lp-cursor-dot {
+  position: fixed;
+  top: -4px; /* Centers an 8px circle */
+  left: -4px;
+  width: 8px;
+  height: 8px;
+  background-color: #10b981; /* Emerald */
+  border-radius: 50%;
   pointer-events: none;
+  z-index: 9999;
+}
+
+.lp-cursor-ring {
+  position: fixed;
+  top: -20px; /* Centers a 40px ring */
+  left: -20px;
+  width: 40px;
+  height: 40px;
+  border: 1.5px solid rgba(16, 185, 129, 0.6);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9998;
+}
+
+/* ── Modern Interactive Spotlight Grid Background ── */
+.lp-interactive-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  background-color: #030712; /* Extremely dark modern black */
+  overflow: hidden;
+}
+
+.lp-grid-pattern {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+  /* Fades out the grid at the edges for a premium look */
+  mask-image: radial-gradient(ellipse at 50% 50%, black 20%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 50%, black 20%, transparent 80%);
+}
+
+.lp-spotlight {
+  position: absolute;
+  top: -300px;
+  left: -300px;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, rgba(139, 92, 246, 0.1) 40%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(50px);
   z-index: 0;
 }
+
+.lp-hero { position: relative; z-index: 1; }
 .lp-hero-content, .lp-hero-visual { position: relative; z-index: 1; }
 
 /* ── Feature cards ─────────────────────────────────────────────────── */
@@ -401,7 +465,7 @@
   margin-bottom: 0.75rem;
 }
 .lp-features-title {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: 'Playfair Display', serif;
   font-size: 2.5rem;
   font-weight: 800;
   letter-spacing: -0.02em;
@@ -440,7 +504,7 @@
   margin-bottom: 1.25rem;
 }
 .lp-feature-card h3 {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: 'Playfair Display', serif;
   font-size: 1.1rem;
   font-weight: 700;
   margin: 0 0 0.6rem;

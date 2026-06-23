@@ -24,7 +24,8 @@ def build_context(
     running_summary: str,
     messages: list,
     dynamic_context: str,
-    current_answer: str
+    current_answer: str,
+    user_profile_context: str = ""
 ) -> list:
     """
     Assembles the exact 5-part prompt structure according to cache discipline.
@@ -32,6 +33,10 @@ def build_context(
     # 1. System Prompt (Static)
     final_messages = [SystemMessage(content=system_prompt)]
     
+    # 1.5. User Profile Context
+    if user_profile_context:
+        final_messages.append(SystemMessage(content=f"User Context:\n{user_profile_context}"))
+        
     # 2. Running Summary
     if running_summary:
         final_messages.append(SystemMessage(content=f"Conversation so far: {running_summary}"))

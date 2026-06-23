@@ -1,11 +1,46 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useMotionValue, useSpring } from 'framer-motion';
 import { Gauge, PlayCircle, FileSearch, GitBranch, MessagesSquare, Search, Sparkles } from 'lucide-react';
 import './LandingPage.css';
 
 const LandingPage = ({ onGetStarted }) => {
+  const mouseX = useMotionValue(-1000);
+  const mouseY = useMotionValue(-1000);
+
+  const handleMouseMove = (e) => {
+    mouseX.set(e.clientX);
+    mouseY.set(e.clientY);
+  };
+
   return (
-    <div className="landing-page">
+    <div className="landing-page" onMouseMove={handleMouseMove}>
+
+      {/* Custom Dynamic Mouse Pointer */}
+      <motion.div 
+        className="lp-cursor-dot"
+        style={{ x: mouseX, y: mouseY }}
+      />
+      <motion.div 
+        className="lp-cursor-ring"
+        style={{
+          x: useSpring(mouseX, { stiffness: 150, damping: 15 }),
+          y: useSpring(mouseY, { stiffness: 150, damping: 15 })
+        }}
+      />
+
+      {/* Modern Interactive Spotlight Grid */}
+      <div className="lp-interactive-bg">
+        <div className="lp-grid-pattern"></div>
+        <motion.div 
+          className="lp-spotlight"
+          style={{
+            x: useSpring(mouseX, { stiffness: 70, damping: 20 }),
+            y: useSpring(mouseY, { stiffness: 70, damping: 20 })
+          }}
+        />
+      </div>
+
+
       {/* Navbar */}
       <nav className="lp-navbar">
         <div className="lp-logo">
@@ -62,10 +97,7 @@ const LandingPage = ({ onGetStarted }) => {
           </div>
         </div>
         <div className="lp-hero-visual">
-          <motion.img
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
+          <img
             src="/hero_mockup.png"
             alt="Caliber dashboard"
             className="lp-hero-image"
